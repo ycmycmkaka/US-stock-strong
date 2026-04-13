@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>US Strong Stocks</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">每日自動更新</div>
+        <h1>美股強勢股篩選器</h1>
+        <p class="subtitle">免費版｜市值、兩個月升幅、50MA/200MA、52週高位</p>
+      </div>
+      <div id="summaryCard" class="summary-card">載入中…</div>
+    </header>
+
+    <section class="tabs-row">
+      <button class="tab active">強勢股</button>
+    </section>
+
+    <section class="toolbar">
+      <input id="searchInput" type="search" placeholder="搜尋股票代號 / 公司名" />
+      <select id="sortSelect">
+        <option value="return_2m_pct_desc">按兩個月升幅 ↓</option>
+        <option value="distance_to_52w_high_pct_asc">按接近52週高位 ↑</option>
+        <option value="market_cap_desc">按市值 ↓</option>
+        <option value="symbol_asc">按代號 A→Z</option>
+      </select>
+    </section>
+
+    <section class="rules-card" id="rulesCard"></section>
+
+    <section class="table-card">
+      <div class="table-title-row">
+        <h2>符合條件股票</h2>
+        <span id="countText"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>代號</th>
+              <th>公司</th>
+              <th>交易所</th>
+              <th>市值</th>
+              <th>現價</th>
+              <th>50MA</th>
+              <th>200MA</th>
+              <th>52週高位</th>
+              <th>距52週高位</th>
+              <th>2個月升幅</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty hidden">暫時冇符合條件股票。</div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

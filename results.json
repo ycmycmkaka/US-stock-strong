@@ -1,0 +1,11 @@
+{
+  "generated_at": "Waiting for first update",
+  "rules": {
+    "market_cap_min": 10000000000,
+    "min_2m_return_pct": 15,
+    "max_pct_below_52w_high": 15,
+    "require_price_above_50ma": true,
+    "require_50ma_above_200ma": true
+  },
+  "results": []
+}
