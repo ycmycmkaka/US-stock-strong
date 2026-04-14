@@ -33,10 +33,18 @@ function formatPct(value) {
 
 function pctClass(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return "";
+  if (!Number.isFinite(n)) return "neutral";
   if (n > 0) return "positive";
   if (n < 0) return "negative";
-  return "";
+  return "neutral";
+}
+
+function marketCapBadgeClass(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "badge-marketcap-default";
+  if (n >= 100_000_000_000) return "badge-marketcap-red";      // >= 100B
+  if (n >= 50_000_000_000) return "badge-marketcap-yellow";    // >= 50B
+  return "badge-marketcap-default";
 }
 
 function escapeHtml(text) {
@@ -61,35 +69,30 @@ function renderSummary(data) {
 
 function renderRules(data) {
   const rules = data.rules || {};
-
-  const marketCapText = rules.market_cap_min
-    ? `市值 ≥ ${formatMarketCap(rules.market_cap_min)}`
-    : "市值條件 -";
-
   const benchmark = rules.benchmark_symbol || "SPY";
 
   const chips = [
     "只限美股",
-    marketCapText,
+    `市值 ≥ ${formatMarketCap(rules.market_cap_min || 0)}`,
     `2個月跑贏 ${benchmark} ≥ ${Number(rules.rs_2m_vs_spy_min_pct ?? 10).toFixed(1)}%`,
     `1個月跑贏 ${benchmark} ≥ ${Number(rules.rs_1m_vs_spy_min_pct ?? 5).toFixed(1)}%`,
-    `距3個月高位 ≤ ${Number(rules.max_dist_from_3m_high_pct ?? 15).toFixed(1)}%`,
+    `距3個月高位 ≤ ${Number(rules.max_dist_from_3m_high_pct ?? 15).toFixed(1)}%`
   ];
 
-  const extraInfo = [];
+  const extra = [];
   if (Number.isFinite(Number(rules.spy_one_month_return_pct))) {
-    extraInfo.push(`${benchmark} 1M：${formatPct(rules.spy_one_month_return_pct)}`);
+    extra.push(`${benchmark} 1M：${formatPct(rules.spy_one_month_return_pct)}`);
   }
   if (Number.isFinite(Number(rules.spy_two_month_return_pct))) {
-    extraInfo.push(`${benchmark} 2M：${formatPct(rules.spy_two_month_return_pct)}`);
+    extra.push(`${benchmark} 2M：${formatPct(rules.spy_two_month_return_pct)}`);
   }
 
   rulesCard.innerHTML = `
     <div class="rules-title">目前條件</div>
     <div class="rule-chips">
-      ${chips.map((chip) => `<span class="rule-chip">${escapeHtml(chip)}</span>`).join("")}
+      ${chips.map(chip => `<span class="rule-chip">${escapeHtml(chip)}</span>`).join("")}
     </div>
-    ${extraInfo.length ? `<div class="rules-extra">${extraInfo.map(escapeHtml).join(" ｜ ")}</div>` : ""}
+    <div class="rules-extra">${extra.map(escapeHtml).join(" ｜ ")}</div>
   `;
 }
 
@@ -114,7 +117,6 @@ function sortRows(rows, sortKey) {
       break;
     default:
       cloned.sort((a, b) => (Number(b.rs_2m_vs_spy_pct) || -Infinity) - (Number(a.rs_2m_vs_spy_pct) || -Infinity));
-      break;
   }
 
   return cloned;
@@ -125,25 +127,29 @@ function renderTable(rows) {
 
   if (!rows.length) {
     emptyState.classList.remove("hidden");
-    countText.textContent = "0 隻";
+    countText.textContent = "顯示 0 隻";
     return;
   }
 
   emptyState.classList.add("hidden");
-  countText.textContent = `${rows.length} 隻`;
+  countText.textContent = `顯示 ${rows.length} 隻`;
 
   const html = rows.map((row) => {
-    const symbol = escapeHtml(row.symbol || "");
-    const company = escapeHtml(row.company || "");
-    const exchange = escapeHtml(row.exchange || "");
-
     return `
       <tr>
-        <td>${symbol}</td>
-        <td>${company}</td>
-        <td>${exchange}</td>
-        <td>${formatMarketCap(row.market_cap)}</td>
-        <td>${formatPrice(row.current_price)}</td>
+        <td class="symbol-cell">${escapeHtml(row.symbol || "")}</td>
+        <td class="company-cell">${escapeHtml(row.company || "")}</td>
+        <td>${escapeHtml(row.exchange || "")}</td>
+        <td>
+          <span class="badge ${marketCapBadgeClass(row.market_cap)}">
+            ${formatMarketCap(row.market_cap)}
+          </span>
+        </td>
+        <td>
+          <span class="badge badge-price">
+            ${formatPrice(row.current_price)}
+          </span>
+        </td>
         <td class="${pctClass(row.one_month_return_pct)}">${formatPct(row.one_month_return_pct)}</td>
         <td class="${pctClass(row.two_month_return_pct)}">${formatPct(row.two_month_return_pct)}</td>
         <td class="${pctClass(row.rs_1m_vs_spy_pct)}">${formatPct(row.rs_1m_vs_spy_pct)}</td>
@@ -174,9 +180,7 @@ function applySearchAndSort() {
 async function loadData() {
   try {
     const response = await fetch(`results.json?t=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
 
@@ -188,20 +192,17 @@ async function loadData() {
     applySearchAndSort();
   } catch (error) {
     console.error(error);
-
     summaryCard.innerHTML = `
       <div class="summary-label">載入失敗</div>
       <div class="summary-updated">請稍後再試</div>
     `;
-
     rulesCard.innerHTML = `
       <div class="rules-title">目前條件</div>
       <div class="rules-extra">未能讀取 results.json</div>
     `;
-
     resultsBody.innerHTML = "";
     emptyState.classList.remove("hidden");
-    countText.textContent = "0 隻";
+    countText.textContent = "顯示 0 隻";
   }
 }
 
