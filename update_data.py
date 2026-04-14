@@ -81,7 +81,7 @@ def get_benchmark_returns(symbol: str):
         raise ValueError(f"Cannot fetch benchmark history for {symbol}")
 
     hist = hist.reset_index()
-    hist["date"] = pd.to_datetime(hist["date"]).dt.tz_localize(None)
+    hist["date"] = pd.to_datetime(hist["date"], utc=True).dt.tz_convert(None)
     hist = hist.sort_values("date")
     closes = hist.set_index("date")["close"].dropna()
 
@@ -131,7 +131,7 @@ def build_results():
         if history_df.empty:
             continue
 
-        history_df["date"] = pd.to_datetime(history_df["date"]).dt.tz_localize(None)
+        history_df["date"] = pd.to_datetime(history_df["date"], utc=True).dt.tz_convert(None)
         history_df = history_df.sort_values(["symbol", "date"])
 
         for symbol in batch:
