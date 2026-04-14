@@ -1,5 +1,5 @@
 {
-  "generated_at": "Waiting for first update",
+  "generated_at": "2026-04-14 02:51 UTC",
   "rules": {
     "market_cap_min": 10000000000,
     "min_2m_return_pct": 15,
@@ -7,5 +7,32 @@
     "require_price_above_50ma": true,
     "require_50ma_above_200ma": true
   },
-  "results": []
+  "results": [
+    {
+      "symbol": "UI",
+      "company": "Ubiquiti Inc.",
+      "sector": "",
+      "exchange": "NYSE",
+      "market_cap": 57557692416.0,
+      "current_price": 951.0399780273438,
+      "ma50": 756.1,
+      "ma200": 610.45,
+      "high_52w": 951.04,
+      "distance_to_52w_high_pct": 0.0,
+      "return_2m_pct": 32.37
+    },
+    {
+      "symbol": "ULS",
+      "company": "UL Solutions Inc.",
+      "sector": "",
+      "exchange": "NYSE",
+      "market_cap": 16987455488.0,
+      "current_price": 84.43000030517578,
+      "ma50": 80.25,
+      "ma200": 76.0,
+      "high_52w": 91.21,
+      "distance_to_52w_high_pct": 7.43,
+      "return_2m_pct": 15.14
+    }
+  ]
 }
