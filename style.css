@@ -229,7 +229,7 @@ h1 {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1180px;
+  min-width: 1120px;
 }
 
 thead th {
@@ -322,7 +322,7 @@ tbody tr:last-child td {
 }
 
 .company-cell {
-  max-width: 260px;
+  max-width: 220px;
   white-space: normal;
   line-height: 1.35;
 }
