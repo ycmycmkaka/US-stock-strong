@@ -89,11 +89,7 @@ function renderRules(data) {
     <div class="rule-chips">
       ${chips.map((chip) => `<span class="rule-chip">${escapeHtml(chip)}</span>`).join("")}
     </div>
-    ${
-      extraInfo.length
-        ? `<div class="rules-extra">${extraInfo.map(escapeHtml).join(" ｜ ")}</div>`
-        : ""
-    }
+    ${extraInfo.length ? `<div class="rules-extra">${extraInfo.map(escapeHtml).join(" ｜ ")}</div>` : ""}
   `;
 }
 
