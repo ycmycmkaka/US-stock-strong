@@ -1,11 +1,7 @@
 {
   "market_cap_min": 10000000000,
-  "min_2m_return_pct": 15,
-  "max_pct_below_52w_high": 15,
-  "require_price_above_50ma": true,
-  "require_50ma_above_200ma": true,
-  "allowed_exchange_names": ["NasdaqGS", "NasdaqGM", "NasdaqCM", "NYSE", "NYSEArca", "AMEX"],
-  "schedule_note": "Daily update by GitHub Actions.",
-  "max_workers": 8,
-  "history_period": "400d"
+  "benchmark_symbol": "SPY",
+  "rs_2m_vs_spy_min_pct": 10,
+  "rs_1m_vs_spy_min_pct": 5,
+  "max_dist_from_3m_high_pct": 15
 }
