@@ -1,15 +1,16 @@
-import json
+ import json
 import math
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 from pathlib import Path
 
 import pandas as pd
 import requests
 from yahooquery import Ticker
 
-BASE = Path(__file__).resolve().parent
-CONFIG_PATH = BASE / "config.json"
-RESULTS_PATH = BASE / "results.json"
+
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config.json"
+RESULTS_PATH = BASE_DIR / "results.json"
 
 
 def load_config():
@@ -17,156 +18,224 @@ def load_config():
         return json.load(f)
 
 
-def load_us_symbols():
+def fetch_us_symbols():
     url = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
-    text = requests.get(url, timeout=30).text
-    rows = []
-    for line in text.splitlines()[1:]:
-        if not line or line.startswith("File Creation Time"):
-            continue
-        parts = line.split("|")
-        if len(parts) < 2:
-            continue
-        symbol = parts[0].strip()
-        if symbol and "$" not in symbol and "." not in symbol:
-            rows.append(symbol)
+    r1 = requests.get(url, timeout=30)
+    r1.raise_for_status()
+    df1 = pd.read_csv(pd.io.common.StringIO(r1.text), sep="|")
+    df1 = df1[df1["Symbol"] != "File Creation Time"]
+    df1 = df1[["Symbol"]].copy()
+    df1["exchange"] = "NASDAQ"
 
-    other = requests.get("https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt", timeout=30).text
-    for line in other.splitlines()[1:]:
-        if not line or line.startswith("File Creation Time"):
-            continue
-        parts = line.split("|")
-        if len(parts) < 3:
-            continue
-        symbol = parts[0].strip()
-        if symbol and "$" not in symbol and "." not in symbol:
-            rows.append(symbol)
-    return sorted(set(rows))
+    url2 = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
+    r2 = requests.get(url2, timeout=30)
+    r2.raise_for_status()
+    df2 = pd.read_csv(pd.io.common.StringIO(r2.text), sep="|")
+    df2 = df2[df2["ACT Symbol"] != "File Creation Time"]
+    df2 = df2.rename(columns={"ACT Symbol": "Symbol", "Exchange": "exchange"})
+    df2 = df2[["Symbol", "exchange"]].copy()
+
+    exchange_map = {
+        "N": "NYSE",
+        "A": "AMEX",
+        "P": "NYSE Arca",
+        "Z": "BATS",
+        "V": "IEX"
+    }
+    df2["exchange"] = df2["exchange"].map(exchange_map).fillna(df2["exchange"])
+
+    df = pd.concat([df1, df2], ignore_index=True)
+    df = df.dropna()
+    df = df[~df["Symbol"].astype(str).str.contains(r"[\^\$]", regex=True)]
+    df = df[~df["Symbol"].astype(str).str.contains(r"\.", regex=True)]
+    df = df.drop_duplicates(subset=["Symbol"]).reset_index(drop=True)
+    return df
 
 
-def chunked(seq, size):
-    for i in range(0, len(seq), size):
-        yield seq[i:i + size]
-
-
-def safe_number(v):
-    try:
-        if v is None or (isinstance(v, float) and math.isnan(v)):
-            return None
-        return float(v)
-    except Exception:
+def safe_pct_return(current_price, past_price):
+    if past_price is None or pd.isna(past_price) or past_price <= 0:
         return None
+    return (current_price / past_price - 1) * 100
 
 
-def process_batch(symbols, cfg):
-    t = Ticker(symbols, asynchronous=False, formatted=False, max_workers=4, timeout=30)
-    price_data = t.price or {}
-    summary_data = t.summary_detail or {}
-    quote_type = t.quote_type or {}
-    history = t.history(period=cfg.get("history_period", "400d"), interval="1d")
+def get_price_at_or_before(series: pd.Series, target_date: pd.Timestamp):
+    if series.empty:
+        return None
+    s = series[series.index <= target_date]
+    if s.empty:
+        return None
+    return float(s.iloc[-1])
 
-    out = []
-    if history is None or len(history) == 0:
-        return out
 
-    if isinstance(history.index, pd.MultiIndex):
-        history = history.reset_index()
+def get_stock_data(symbols):
+    ticker = Ticker(symbols, asynchronous=True, max_workers=8)
+    history = ticker.history(period="6mo", interval="1d")
+    summary = ticker.price
+    return history, summary
+
+
+def get_benchmark_returns(symbol: str):
+    t = Ticker(symbol, asynchronous=False)
+    hist = t.history(period="6mo", interval="1d")
+
+    if hist is None or len(hist) == 0:
+        raise ValueError(f"Cannot fetch benchmark history for {symbol}")
+
+    if isinstance(hist.index, pd.MultiIndex):
+        hist = hist.reset_index()
     else:
-        return out
+        hist = hist.reset_index()
+        hist["symbol"] = symbol
 
-    history["date"] = pd.to_datetime(history["date"])
+    hist["date"] = pd.to_datetime(hist["date"]).dt.tz_localize(None)
+    hist = hist.sort_values("date")
+    closes = hist.set_index("date")["close"].dropna()
 
-    for symbol in symbols:
-        p = price_data.get(symbol, {}) if isinstance(price_data, dict) else {}
-        s = summary_data.get(symbol, {}) if isinstance(summary_data, dict) else {}
-        q = quote_type.get(symbol, {}) if isinstance(quote_type, dict) else {}
+    if closes.empty:
+        raise ValueError(f"No close data for benchmark {symbol}")
 
-        exchange = p.get("exchangeName") or q.get("exchange") or q.get("exchangeName")
-        if cfg.get("allowed_exchange_names") and exchange not in cfg["allowed_exchange_names"]:
+    latest_date = closes.index.max()
+    latest_close = float(closes.iloc[-1])
+
+    one_month_ago = latest_date - pd.Timedelta(days=30)
+    two_months_ago = latest_date - pd.Timedelta(days=60)
+
+    price_1m = get_price_at_or_before(closes, one_month_ago)
+    price_2m = get_price_at_or_before(closes, two_months_ago)
+
+    return {
+        "latest_close": latest_close,
+        "one_month_return_pct": safe_pct_return(latest_close, price_1m),
+        "two_month_return_pct": safe_pct_return(latest_close, price_2m),
+    }
+
+
+def build_results():
+    config = load_config()
+    benchmark_symbol = config["benchmark_symbol"]
+
+    symbols_df = fetch_us_symbols()
+    symbols = symbols_df["Symbol"].tolist()
+
+    benchmark = get_benchmark_returns(benchmark_symbol)
+    spy_1m = benchmark["one_month_return_pct"]
+    spy_2m = benchmark["two_month_return_pct"]
+
+    batch_size = 80
+    rows = []
+
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i:i + batch_size]
+        try:
+            history, summary = get_stock_data(batch)
+        except Exception:
+            time.sleep(1)
             continue
 
-        market_cap = safe_number(s.get("marketCap") or p.get("marketCap"))
-        if market_cap is None or market_cap < cfg["market_cap_min"]:
+        history_df = history.reset_index() if hasattr(history, "reset_index") else pd.DataFrame()
+        if history_df.empty:
             continue
 
-        sub = history[history["symbol"] == symbol].sort_values("date")
-        if len(sub) < 252:
-            continue
+        history_df["date"] = pd.to_datetime(history_df["date"]).dt.tz_localize(None)
+        history_df = history_df.sort_values(["symbol", "date"])
 
-        closes = sub["close"].dropna().tolist()
-        if len(closes) < 200:
-            continue
-
-        current_price = safe_number(closes[-1])
-        price_2m_ago = safe_number(closes[-43]) if len(closes) >= 43 else None
-        if not current_price or not price_2m_ago:
-            continue
-
-        ma50 = safe_number(pd.Series(closes[-50:]).mean()) if len(closes) >= 50 else None
-        ma200 = safe_number(pd.Series(closes[-200:]).mean()) if len(closes) >= 200 else None
-        high_52w = safe_number(max(closes[-252:])) if len(closes) >= 252 else None
-        if not ma50 or not ma200 or not high_52w:
-            continue
-
-        return_2m_pct = (current_price / price_2m_ago - 1) * 100
-        if return_2m_pct <= cfg["min_2m_return_pct"]:
-            continue
-
-        if cfg.get("require_price_above_50ma", True) and current_price <= ma50:
-            continue
-
-        if cfg.get("require_50ma_above_200ma", True) and ma50 <= ma200:
-            continue
-
-        distance_to_52w_high_pct = (high_52w - current_price) / high_52w * 100
-        if distance_to_52w_high_pct > cfg["max_pct_below_52w_high"]:
-            continue
-
-        out.append({
-            "symbol": symbol,
-            "company": q.get("longName") or p.get("shortName") or symbol,
-            "sector": q.get("sector") or "",
-            "exchange": exchange,
-            "market_cap": market_cap,
-            "current_price": current_price,
-            "ma50": round(ma50, 2),
-            "ma200": round(ma200, 2),
-            "high_52w": round(high_52w, 2),
-            "distance_to_52w_high_pct": round(distance_to_52w_high_pct, 2),
-            "return_2m_pct": round(return_2m_pct, 2)
-        })
-    return out
-
-
-def main():
-    cfg = load_config()
-    symbols = load_us_symbols()
-    batches = list(chunked(symbols, 80))
-    results = []
-
-    with ThreadPoolExecutor(max_workers=cfg.get("max_workers", 8)) as ex:
-        futures = [ex.submit(process_batch, batch, cfg) for batch in batches]
-        for fut in as_completed(futures):
+        for symbol in batch:
             try:
-                results.extend(fut.result())
-            except Exception:
-                pass
+                info = summary.get(symbol, {})
+                if not isinstance(info, dict):
+                    continue
 
-    results.sort(key=lambda x: x.get("return_2m_pct", 0), reverse=True)
-    payload = {
+                market_cap = info.get("marketCap")
+                short_name = info.get("shortName") or info.get("longName") or symbol
+                exchange = info.get("exchangeName") or info.get("fullExchangeName") or ""
+                current_price = info.get("regularMarketPrice")
+
+                if market_cap is None or current_price is None:
+                    continue
+
+                if market_cap < config["market_cap_min"]:
+                    continue
+
+                stock_hist = history_df[history_df["symbol"] == symbol].copy()
+                if stock_hist.empty:
+                    continue
+
+                closes = stock_hist.set_index("date")["close"].dropna()
+                if len(closes) < 40:
+                    continue
+
+                latest_date = closes.index.max()
+                latest_close = float(closes.iloc[-1])
+
+                one_month_ago = latest_date - pd.Timedelta(days=30)
+                two_months_ago = latest_date - pd.Timedelta(days=60)
+                three_months_ago = latest_date - pd.Timedelta(days=90)
+
+                price_1m = get_price_at_or_before(closes, one_month_ago)
+                price_2m = get_price_at_or_before(closes, two_months_ago)
+
+                one_month_return = safe_pct_return(latest_close, price_1m)
+                two_month_return = safe_pct_return(latest_close, price_2m)
+
+                if one_month_return is None or two_month_return is None:
+                    continue
+
+                rs_1m = one_month_return - spy_1m
+                rs_2m = two_month_return - spy_2m
+
+                recent_3m = closes[closes.index >= three_months_ago]
+                if recent_3m.empty:
+                    continue
+
+                high_3m = float(recent_3m.max())
+                dist_from_3m_high_pct = ((latest_close / high_3m) - 1) * 100
+
+                if rs_2m < config["rs_2m_vs_spy_min_pct"]:
+                    continue
+
+                if rs_1m < config["rs_1m_vs_spy_min_pct"]:
+                    continue
+
+                if abs(dist_from_3m_high_pct) > config["max_dist_from_3m_high_pct"]:
+                    continue
+
+                rows.append({
+                    "symbol": symbol,
+                    "company": short_name,
+                    "exchange": exchange,
+                    "market_cap": market_cap,
+                    "current_price": latest_close,
+                    "one_month_return_pct": round(one_month_return, 1),
+                    "two_month_return_pct": round(two_month_return, 1),
+                    "spy_one_month_return_pct": round(spy_1m, 1),
+                    "spy_two_month_return_pct": round(spy_2m, 1),
+                    "rs_1m_vs_spy_pct": round(rs_1m, 1),
+                    "rs_2m_vs_spy_pct": round(rs_2m, 1),
+                    "high_3m": round(high_3m, 2),
+                    "dist_from_3m_high_pct": round(dist_from_3m_high_pct, 1),
+                })
+            except Exception:
+                continue
+
+    rows = sorted(rows, key=lambda x: x["rs_2m_vs_spy_pct"], reverse=True)
+
+    output = {
         "generated_at": pd.Timestamp.now("UTC").strftime("%Y-%m-%d %H:%M UTC"),
         "rules": {
-            "market_cap_min": cfg["market_cap_min"],
-            "min_2m_return_pct": cfg["min_2m_return_pct"],
-            "max_pct_below_52w_high": cfg["max_pct_below_52w_high"],
-            "require_price_above_50ma": cfg["require_price_above_50ma"],
-            "require_50ma_above_200ma": cfg["require_50ma_above_200ma"],
+            "market_cap_min": config["market_cap_min"],
+            "benchmark_symbol": benchmark_symbol,
+            "rs_2m_vs_spy_min_pct": config["rs_2m_vs_spy_min_pct"],
+            "rs_1m_vs_spy_min_pct": config["rs_1m_vs_spy_min_pct"],
+            "max_dist_from_3m_high_pct": config["max_dist_from_3m_high_pct"],
+            "spy_one_month_return_pct": round(spy_1m, 1),
+            "spy_two_month_return_pct": round(spy_2m, 1),
         },
-        "results": results,
+        "results": rows,
     }
+
     with open(RESULTS_PATH, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
-    main()
+    build_results()
