@@ -1,110 +1,219 @@
 let allRows = [];
+let filteredRows = [];
+let currentSort = "rs_2m_vs_spy_pct_desc";
 
-function formatMoney(num) {
-  if (num == null || Number.isNaN(num)) return '-';
-  const abs = Math.abs(num);
-  if (abs >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-  return `$${num.toFixed(2)}`;
+const summaryCard = document.getElementById("summaryCard");
+const rulesCard = document.getElementById("rulesCard");
+const searchInput = document.getElementById("searchInput");
+const sortSelect = document.getElementById("sortSelect");
+const resultsBody = document.getElementById("resultsBody");
+const emptyState = document.getElementById("emptyState");
+const countText = document.getElementById("countText");
+
+function formatMarketCap(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  if (n >= 1_000_000_000_000) return `$${(n / 1_000_000_000_000).toFixed(2)}T`;
+  if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  return `$${n.toFixed(0)}`;
 }
 
-function formatPrice(num) {
-  if (num == null || Number.isNaN(num)) return '-';
-  return `$${num.toFixed(2)}`;
+function formatPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  return `$${n.toFixed(2)}`;
 }
 
-function formatPct(num) {
-  if (num == null || Number.isNaN(num)) return '-';
-  const sign = num > 0 ? '+' : '';
-  return `${sign}${num.toFixed(1)}%`;
+function formatPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  return `${n.toFixed(1)}%`;
 }
 
-function sortRows(rows, mode) {
-  const map = {
-    return_2m_pct_desc: (a, b) => (b.return_2m_pct ?? -Infinity) - (a.return_2m_pct ?? -Infinity),
-    distance_to_52w_high_pct_asc: (a, b) => (a.distance_to_52w_high_pct ?? Infinity) - (b.distance_to_52w_high_pct ?? Infinity),
-    market_cap_desc: (a, b) => (b.market_cap ?? -Infinity) - (a.market_cap ?? -Infinity),
-    symbol_asc: (a, b) => (a.symbol || '').localeCompare(b.symbol || '')
-  };
-  return [...rows].sort(map[mode] || map.return_2m_pct_desc);
+function pctClass(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (n > 0) return "positive";
+  if (n < 0) return "negative";
+  return "";
 }
 
-function renderRules(data) {
-  const card = document.getElementById('rulesCard');
-  const rules = data.rules || {};
-  const chips = [
-    '只限美股',
-    `市值 ≥ ${formatMoney(rules.market_cap_min || 0)}`,
-    `2個月升幅 > ${rules.min_2m_return_pct ?? 0}%`,
-    '現價 > 50MA',
-    '50MA > 200MA',
-    `距52週高位 ≤ ${rules.max_pct_below_52w_high ?? 0}%`
-  ];
-  card.innerHTML = `<h2>目前條件</h2><div class="rule-list">${chips.map(x => `<span class="rule-chip">${x}</span>`).join('')}</div>`;
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function renderSummary(data) {
-  const el = document.getElementById('summaryCard');
-  const count = (data.results || []).length;
-  const updated = data.generated_at || '-';
-  el.innerHTML = `<strong>${count} 隻</strong><div>最新符合條件強勢股</div><div style="margin-top:8px;">最後更新：${updated}</div>`;
+  const updated = data.generated_at || "Unknown";
+  const count = Array.isArray(data.results) ? data.results.length : 0;
+
+  summaryCard.innerHTML = `
+    <div class="summary-label">最新符合條件相對強勢股</div>
+    <div class="summary-count">${count} 隻</div>
+    <div class="summary-updated">最後更新：${escapeHtml(updated)}</div>
+  `;
 }
 
-function renderTable() {
-  const search = document.getElementById('searchInput').value.trim().toLowerCase();
-  const sortMode = document.getElementById('sortSelect').value;
-  let rows = allRows.filter(r => {
-    const text = `${r.symbol || ''} ${r.company || ''}`.toLowerCase();
-    return text.includes(search);
-  });
-  rows = sortRows(rows, sortMode);
+function renderRules(data) {
+  const rules = data.rules || {};
 
-  const body = document.getElementById('resultsBody');
-  const empty = document.getElementById('emptyState');
-  const countText = document.getElementById('countText');
+  const marketCapText = rules.market_cap_min
+    ? `市值 ≥ ${formatMarketCap(rules.market_cap_min)}`
+    : "市值條件 -";
 
-  countText.textContent = `顯示 ${rows.length} 隻`;
+  const benchmark = rules.benchmark_symbol || "SPY";
+
+  const chips = [
+    "只限美股",
+    marketCapText,
+    `2個月跑贏 ${benchmark} ≥ ${Number(rules.rs_2m_vs_spy_min_pct ?? 10).toFixed(1)}%`,
+    `1個月跑贏 ${benchmark} ≥ ${Number(rules.rs_1m_vs_spy_min_pct ?? 5).toFixed(1)}%`,
+    `距3個月高位 ≤ ${Number(rules.max_dist_from_3m_high_pct ?? 15).toFixed(1)}%`,
+  ];
+
+  const extraInfo = [];
+  if (Number.isFinite(Number(rules.spy_one_month_return_pct))) {
+    extraInfo.push(`${benchmark} 1M：${formatPct(rules.spy_one_month_return_pct)}`);
+  }
+  if (Number.isFinite(Number(rules.spy_two_month_return_pct))) {
+    extraInfo.push(`${benchmark} 2M：${formatPct(rules.spy_two_month_return_pct)}`);
+  }
+
+  rulesCard.innerHTML = `
+    <div class="rules-title">目前條件</div>
+    <div class="rule-chips">
+      ${chips.map((chip) => `<span class="rule-chip">${escapeHtml(chip)}</span>`).join("")}
+    </div>
+    ${
+      extraInfo.length
+        ? `<div class="rules-extra">${extraInfo.map(escapeHtml).join(" ｜ ")}</div>`
+        : ""
+    }
+  `;
+}
+
+function sortRows(rows, sortKey) {
+  const cloned = [...rows];
+
+  switch (sortKey) {
+    case "rs_2m_vs_spy_pct_desc":
+      cloned.sort((a, b) => (Number(b.rs_2m_vs_spy_pct) || -Infinity) - (Number(a.rs_2m_vs_spy_pct) || -Infinity));
+      break;
+    case "rs_1m_vs_spy_pct_desc":
+      cloned.sort((a, b) => (Number(b.rs_1m_vs_spy_pct) || -Infinity) - (Number(a.rs_1m_vs_spy_pct) || -Infinity));
+      break;
+    case "dist_from_3m_high_pct_desc":
+      cloned.sort((a, b) => (Number(b.dist_from_3m_high_pct) || -Infinity) - (Number(a.dist_from_3m_high_pct) || -Infinity));
+      break;
+    case "market_cap_desc":
+      cloned.sort((a, b) => (Number(b.market_cap) || -Infinity) - (Number(a.market_cap) || -Infinity));
+      break;
+    case "symbol_asc":
+      cloned.sort((a, b) => String(a.symbol || "").localeCompare(String(b.symbol || "")));
+      break;
+    default:
+      cloned.sort((a, b) => (Number(b.rs_2m_vs_spy_pct) || -Infinity) - (Number(a.rs_2m_vs_spy_pct) || -Infinity));
+      break;
+  }
+
+  return cloned;
+}
+
+function renderTable(rows) {
+  resultsBody.innerHTML = "";
 
   if (!rows.length) {
-    body.innerHTML = '';
-    empty.classList.remove('hidden');
+    emptyState.classList.remove("hidden");
+    countText.textContent = "0 隻";
     return;
   }
-  empty.classList.add('hidden');
 
-  body.innerHTML = rows.map(r => `
-    <tr>
-      <td>
-        <div class="ticker">${r.symbol ?? '-'}</div>
-        <div class="company">${r.sector ?? ''}</div>
-      </td>
-      <td>${r.company ?? '-'}</td>
-      <td>${r.exchange ?? '-'}</td>
-      <td>${formatMoney(r.market_cap)}</td>
-      <td>${formatPrice(r.current_price)}</td>
-      <td>${formatPrice(r.ma50)}</td>
-      <td>${formatPrice(r.ma200)}</td>
-      <td>${formatPrice(r.high_52w)}</td>
-      <td class="${(r.distance_to_52w_high_pct ?? 999) <= 15 ? 'good' : ''}">${formatPct(-1 * (r.distance_to_52w_high_pct ?? 0))}</td>
-      <td class="good">${formatPct(r.return_2m_pct)}</td>
-    </tr>
-  `).join('');
+  emptyState.classList.add("hidden");
+  countText.textContent = `${rows.length} 隻`;
+
+  const html = rows.map((row) => {
+    const symbol = escapeHtml(row.symbol || "");
+    const company = escapeHtml(row.company || "");
+    const exchange = escapeHtml(row.exchange || "");
+
+    return `
+      <tr>
+        <td>${symbol}</td>
+        <td>${company}</td>
+        <td>${exchange}</td>
+        <td>${formatMarketCap(row.market_cap)}</td>
+        <td>${formatPrice(row.current_price)}</td>
+        <td class="${pctClass(row.one_month_return_pct)}">${formatPct(row.one_month_return_pct)}</td>
+        <td class="${pctClass(row.two_month_return_pct)}">${formatPct(row.two_month_return_pct)}</td>
+        <td class="${pctClass(row.rs_1m_vs_spy_pct)}">${formatPct(row.rs_1m_vs_spy_pct)}</td>
+        <td class="${pctClass(row.rs_2m_vs_spy_pct)}">${formatPct(row.rs_2m_vs_spy_pct)}</td>
+        <td>${formatPrice(row.high_3m)}</td>
+        <td class="${pctClass(row.dist_from_3m_high_pct)}">${formatPct(row.dist_from_3m_high_pct)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  resultsBody.innerHTML = html;
 }
 
-async function init() {
+function applySearchAndSort() {
+  const keyword = (searchInput.value || "").trim().toLowerCase();
+
+  filteredRows = allRows.filter((row) => {
+    if (!keyword) return true;
+    const symbol = String(row.symbol || "").toLowerCase();
+    const company = String(row.company || "").toLowerCase();
+    return symbol.includes(keyword) || company.includes(keyword);
+  });
+
+  filteredRows = sortRows(filteredRows, currentSort);
+  renderTable(filteredRows);
+}
+
+async function loadData() {
   try {
-    const res = await fetch(`results.json?ts=${Date.now()}`);
-    const data = await res.json();
-    allRows = data.results || [];
-    renderRules(data);
+    const response = await fetch(`results.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
     renderSummary(data);
-    renderTable();
-  } catch (err) {
-    document.getElementById('summaryCard').innerHTML = '<strong>載入失敗</strong><div>未能讀取 results.json</div>';
+    renderRules(data);
+
+    allRows = Array.isArray(data.results) ? data.results : [];
+    currentSort = sortSelect.value || "rs_2m_vs_spy_pct_desc";
+    applySearchAndSort();
+  } catch (error) {
+    console.error(error);
+
+    summaryCard.innerHTML = `
+      <div class="summary-label">載入失敗</div>
+      <div class="summary-updated">請稍後再試</div>
+    `;
+
+    rulesCard.innerHTML = `
+      <div class="rules-title">目前條件</div>
+      <div class="rules-extra">未能讀取 results.json</div>
+    `;
+
+    resultsBody.innerHTML = "";
+    emptyState.classList.remove("hidden");
+    countText.textContent = "0 隻";
   }
 }
 
-document.getElementById('searchInput').addEventListener('input', renderTable);
-document.getElementById('sortSelect').addEventListener('change', renderTable);
-init();
+searchInput.addEventListener("input", applySearchAndSort);
+
+sortSelect.addEventListener("change", () => {
+  currentSort = sortSelect.value;
+  applySearchAndSort();
+});
+
+loadData();
