@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-14 02:51 UTC",
+  "generated_at": "2026-04-14 15:15 UTC",
   "rules": {
     "market_cap_min": 10000000000,
     "min_2m_return_pct": 15,
@@ -9,30 +9,30 @@
   },
   "results": [
     {
-      "symbol": "UI",
-      "company": "Ubiquiti Inc.",
+      "symbol": "DELL",
+      "company": "Dell Technologies Inc.",
       "sector": "",
       "exchange": "NYSE",
-      "market_cap": 57557692416.0,
-      "current_price": 951.0399780273438,
-      "ma50": 756.1,
-      "ma200": 610.45,
-      "high_52w": 951.04,
-      "distance_to_52w_high_pct": 0.0,
-      "return_2m_pct": 32.37
+      "market_cap": 121563783168.0,
+      "current_price": 183.625,
+      "ma50": 147.36,
+      "ma200": 136.53,
+      "high_52w": 189.79,
+      "distance_to_52w_high_pct": 3.25,
+      "return_2m_pct": 47.89
     },
     {
-      "symbol": "ULS",
-      "company": "UL Solutions Inc.",
+      "symbol": "BWXT",
+      "company": "BWX Technologies, Inc.",
       "sector": "",
       "exchange": "NYSE",
-      "market_cap": 16987455488.0,
-      "current_price": 84.43000030517578,
-      "ma50": 80.25,
-      "ma200": 76.0,
-      "high_52w": 91.21,
-      "distance_to_52w_high_pct": 7.43,
-      "return_2m_pct": 15.14
+      "market_cap": 21800429568.0,
+      "current_price": 237.8939971923828,
+      "ma50": 206.46,
+      "ma200": 184.99,
+      "high_52w": 237.89,
+      "distance_to_52w_high_pct": 0.0,
+      "return_2m_pct": 19.85
     }
   ]
 }
