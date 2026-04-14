@@ -1,5 +1,4 @@
 import json
-import math
 import time
 from pathlib import Path
 
@@ -19,8 +18,8 @@ def load_config():
 
 
 def fetch_us_symbols():
-    url = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
-    r1 = requests.get(url, timeout=30)
+    url1 = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
+    r1 = requests.get(url1, timeout=30)
     r1.raise_for_status()
     df1 = pd.read_csv(pd.io.common.StringIO(r1.text), sep="|")
     df1 = df1[df1["Symbol"] != "File Creation Time"]
@@ -40,7 +39,7 @@ def fetch_us_symbols():
         "A": "AMEX",
         "P": "NYSE Arca",
         "Z": "BATS",
-        "V": "IEX"
+        "V": "IEX",
     }
     df2["exchange"] = df2["exchange"].map(exchange_map).fillna(df2["exchange"])
 
@@ -67,11 +66,11 @@ def get_price_at_or_before(series: pd.Series, target_date: pd.Timestamp):
     return float(s.iloc[-1])
 
 
-def get_stock_data(symbols):
+def get_price_history(symbols):
     ticker = Ticker(symbols, asynchronous=True, max_workers=8)
     history = ticker.history(period="6mo", interval="1d")
-    summary = ticker.price
-    return history, summary
+    price = ticker.price
+    return history, price
 
 
 def get_benchmark_returns(symbol: str):
@@ -81,12 +80,7 @@ def get_benchmark_returns(symbol: str):
     if hist is None or len(hist) == 0:
         raise ValueError(f"Cannot fetch benchmark history for {symbol}")
 
-    if isinstance(hist.index, pd.MultiIndex):
-        hist = hist.reset_index()
-    else:
-        hist = hist.reset_index()
-        hist["symbol"] = symbol
-
+    hist = hist.reset_index()
     hist["date"] = pd.to_datetime(hist["date"]).dt.tz_localize(None)
     hist = hist.sort_values("date")
     closes = hist.set_index("date")["close"].dropna()
@@ -126,8 +120,9 @@ def build_results():
 
     for i in range(0, len(symbols), batch_size):
         batch = symbols[i:i + batch_size]
+
         try:
-            history, summary = get_stock_data(batch)
+            history, summary = get_price_history(batch)
         except Exception:
             time.sleep(1)
             continue
@@ -199,21 +194,23 @@ def build_results():
                 if abs(dist_from_3m_high_pct) > config["max_dist_from_3m_high_pct"]:
                     continue
 
-                rows.append({
-                    "symbol": symbol,
-                    "company": short_name,
-                    "exchange": exchange,
-                    "market_cap": market_cap,
-                    "current_price": latest_close,
-                    "one_month_return_pct": round(one_month_return, 1),
-                    "two_month_return_pct": round(two_month_return, 1),
-                    "spy_one_month_return_pct": round(spy_1m, 1),
-                    "spy_two_month_return_pct": round(spy_2m, 1),
-                    "rs_1m_vs_spy_pct": round(rs_1m, 1),
-                    "rs_2m_vs_spy_pct": round(rs_2m, 1),
-                    "high_3m": round(high_3m, 2),
-                    "dist_from_3m_high_pct": round(dist_from_3m_high_pct, 1),
-                })
+                rows.append(
+                    {
+                        "symbol": symbol,
+                        "company": short_name,
+                        "exchange": exchange,
+                        "market_cap": market_cap,
+                        "current_price": latest_close,
+                        "one_month_return_pct": round(one_month_return, 1),
+                        "two_month_return_pct": round(two_month_return, 1),
+                        "spy_one_month_return_pct": round(spy_1m, 1),
+                        "spy_two_month_return_pct": round(spy_2m, 1),
+                        "rs_1m_vs_spy_pct": round(rs_1m, 1),
+                        "rs_2m_vs_spy_pct": round(rs_2m, 1),
+                        "high_3m": round(high_3m, 2),
+                        "dist_from_3m_high_pct": round(dist_from_3m_high_pct, 1),
+                    }
+                )
             except Exception:
                 continue
 
