@@ -68,7 +68,7 @@ def get_price_at_or_before(series: pd.Series, target_date: pd.Timestamp):
 
 def get_price_history(symbols):
     ticker = Ticker(symbols, asynchronous=True, max_workers=8)
-    history = ticker.history(period="6mo", interval="1d")
+    history = ticker.history(period="14mo", interval="1d")
     price = ticker.price
     return history, price
 
@@ -91,16 +91,16 @@ def get_benchmark_returns(symbol: str):
     latest_date = closes.index.max()
     latest_close = float(closes.iloc[-1])
 
-    one_month_ago = latest_date - pd.Timedelta(days=30)
-    two_months_ago = latest_date - pd.Timedelta(days=60)
+    five_days_ago = latest_date - pd.Timedelta(days=7)
+    twenty_days_ago = latest_date - pd.Timedelta(days=30)
 
-    price_1m = get_price_at_or_before(closes, one_month_ago)
-    price_2m = get_price_at_or_before(closes, two_months_ago)
+    price_5d = get_price_at_or_before(closes, five_days_ago)
+    price_20d = get_price_at_or_before(closes, twenty_days_ago)
 
     return {
         "latest_close": latest_close,
-        "one_month_return_pct": safe_pct_return(latest_close, price_1m),
-        "two_month_return_pct": safe_pct_return(latest_close, price_2m),
+        "five_day_return_pct": safe_pct_return(latest_close, price_5d),
+        "twenty_day_return_pct": safe_pct_return(latest_close, price_20d),
     }
 
 
@@ -112,8 +112,8 @@ def build_results():
     symbols = symbols_df["Symbol"].tolist()
 
     benchmark = get_benchmark_returns(benchmark_symbol)
-    spy_1m = benchmark["one_month_return_pct"]
-    spy_2m = benchmark["two_month_return_pct"]
+    spy_5d = benchmark["five_day_return_pct"]
+    spy_20d = benchmark["twenty_day_return_pct"]
 
     batch_size = 80
     rows = []
@@ -143,12 +143,8 @@ def build_results():
                 market_cap = info.get("marketCap")
                 short_name = info.get("shortName") or info.get("longName") or symbol
                 exchange = info.get("exchangeName") or info.get("fullExchangeName") or ""
-                current_price = info.get("regularMarketPrice")
 
-                if market_cap is None or current_price is None:
-                    continue
-
-                if market_cap < config["market_cap_min"]:
+                if market_cap is None or market_cap < config["market_cap_min"]:
                     continue
 
                 stock_hist = history_df[history_df["symbol"] == symbol].copy()
@@ -156,42 +152,41 @@ def build_results():
                     continue
 
                 closes = stock_hist.set_index("date")["close"].dropna()
-                if len(closes) < 40:
+                if len(closes) < 260:
                     continue
 
                 latest_date = closes.index.max()
-                latest_close = float(closes.iloc[-1])
+                recent_close = float(closes.iloc[-1])
 
-                one_month_ago = latest_date - pd.Timedelta(days=30)
-                two_months_ago = latest_date - pd.Timedelta(days=60)
-                three_months_ago = latest_date - pd.Timedelta(days=90)
+                five_days_ago = latest_date - pd.Timedelta(days=7)
+                twenty_days_ago = latest_date - pd.Timedelta(days=30)
 
-                price_1m = get_price_at_or_before(closes, one_month_ago)
-                price_2m = get_price_at_or_before(closes, two_months_ago)
+                price_5d = get_price_at_or_before(closes, five_days_ago)
+                price_20d = get_price_at_or_before(closes, twenty_days_ago)
 
-                one_month_return = safe_pct_return(latest_close, price_1m)
-                two_month_return = safe_pct_return(latest_close, price_2m)
+                return_5d = safe_pct_return(recent_close, price_5d)
+                return_20d = safe_pct_return(recent_close, price_20d)
 
-                if one_month_return is None or two_month_return is None:
+                if return_5d is None or return_20d is None:
                     continue
 
-                rs_1m = one_month_return - spy_1m
-                rs_2m = two_month_return - spy_2m
+                rs_5d = return_5d - spy_5d
+                rs_20d = return_20d - spy_20d
 
-                recent_3m = closes[closes.index >= three_months_ago]
-                if recent_3m.empty:
+                trailing_52w = closes.tail(252)
+                if trailing_52w.empty:
                     continue
 
-                high_3m = float(recent_3m.max())
-                dist_from_3m_high_pct = ((latest_close / high_3m) - 1) * 100
+                high_52w = float(trailing_52w.max())
+                dist_from_52w_high_pct = ((recent_close / high_52w) - 1) * 100
 
-                if rs_2m < config["rs_2m_vs_spy_min_pct"]:
+                if rs_5d < config["rs_5d_vs_spy_min_pct"]:
                     continue
 
-                if rs_1m < config["rs_1m_vs_spy_min_pct"]:
+                if rs_20d < config["rs_20d_vs_spy_min_pct"]:
                     continue
 
-                if abs(dist_from_3m_high_pct) > config["max_dist_from_3m_high_pct"]:
+                if abs(dist_from_52w_high_pct) > config["max_dist_from_52w_high_pct"]:
                     continue
 
                 rows.append(
@@ -200,32 +195,32 @@ def build_results():
                         "company": short_name,
                         "exchange": exchange,
                         "market_cap": market_cap,
-                        "current_price": latest_close,
-                        "one_month_return_pct": round(one_month_return, 1),
-                        "two_month_return_pct": round(two_month_return, 1),
-                        "spy_one_month_return_pct": round(spy_1m, 1),
-                        "spy_two_month_return_pct": round(spy_2m, 1),
-                        "rs_1m_vs_spy_pct": round(rs_1m, 1),
-                        "rs_2m_vs_spy_pct": round(rs_2m, 1),
-                        "high_3m": round(high_3m, 2),
-                        "dist_from_3m_high_pct": round(dist_from_3m_high_pct, 1),
+                        "recent_close": round(recent_close, 2),
+                        "five_day_return_pct": round(return_5d, 1),
+                        "twenty_day_return_pct": round(return_20d, 1),
+                        "spy_five_day_return_pct": round(spy_5d, 1),
+                        "spy_twenty_day_return_pct": round(spy_20d, 1),
+                        "rs_5d_vs_spy_pct": round(rs_5d, 1),
+                        "rs_20d_vs_spy_pct": round(rs_20d, 1),
+                        "high_52w": round(high_52w, 2),
+                        "dist_from_52w_high_pct": round(dist_from_52w_high_pct, 1),
                     }
                 )
             except Exception:
                 continue
 
-    rows = sorted(rows, key=lambda x: x["rs_2m_vs_spy_pct"], reverse=True)
+    rows = sorted(rows, key=lambda x: x["rs_20d_vs_spy_pct"], reverse=True)
 
     output = {
         "generated_at": pd.Timestamp.now("UTC").strftime("%Y-%m-%d %H:%M UTC"),
         "rules": {
             "market_cap_min": config["market_cap_min"],
             "benchmark_symbol": benchmark_symbol,
-            "rs_2m_vs_spy_min_pct": config["rs_2m_vs_spy_min_pct"],
-            "rs_1m_vs_spy_min_pct": config["rs_1m_vs_spy_min_pct"],
-            "max_dist_from_3m_high_pct": config["max_dist_from_3m_high_pct"],
-            "spy_one_month_return_pct": round(spy_1m, 1),
-            "spy_two_month_return_pct": round(spy_2m, 1),
+            "rs_5d_vs_spy_min_pct": config["rs_5d_vs_spy_min_pct"],
+            "rs_20d_vs_spy_min_pct": config["rs_20d_vs_spy_min_pct"],
+            "max_dist_from_52w_high_pct": config["max_dist_from_52w_high_pct"],
+            "spy_five_day_return_pct": round(spy_5d, 1),
+            "spy_twenty_day_return_pct": round(spy_20d, 1),
         },
         "results": rows,
     }
