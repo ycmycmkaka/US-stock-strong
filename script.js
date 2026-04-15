@@ -1,6 +1,6 @@
 let allRows = [];
 let filteredRows = [];
-let currentSort = "rs_2m_vs_spy_pct_desc";
+let currentSort = "rs_20d_vs_spy_pct_desc";
 
 const summaryCard = document.getElementById("summaryCard");
 const rulesCard = document.getElementById("rulesCard");
@@ -42,8 +42,8 @@ function pctClass(value) {
 function marketCapBadgeClass(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "badge-marketcap-default";
-  if (n >= 100_000_000_000) return "badge-marketcap-red";      // >= 100B
-  if (n >= 50_000_000_000) return "badge-marketcap-yellow";    // >= 50B
+  if (n >= 100_000_000_000) return "badge-marketcap-red";
+  if (n >= 50_000_000_000) return "badge-marketcap-yellow";
   return "badge-marketcap-default";
 }
 
@@ -61,7 +61,7 @@ function renderSummary(data) {
   const count = Array.isArray(data.results) ? data.results.length : 0;
 
   summaryCard.innerHTML = `
-    <div class="summary-label">最新符合條件相對強勢股</div>
+    <div class="summary-label">最新符合條件短炒強勢股</div>
     <div class="summary-count">${count} 隻</div>
     <div class="summary-updated">最後更新：${escapeHtml(updated)}</div>
   `;
@@ -74,17 +74,17 @@ function renderRules(data) {
   const chips = [
     "只限美股",
     `市值 ≥ ${formatMarketCap(rules.market_cap_min || 0)}`,
-    `2個月跑贏 ${benchmark} ≥ ${Number(rules.rs_2m_vs_spy_min_pct ?? 10).toFixed(1)}%`,
-    `1個月跑贏 ${benchmark} ≥ ${Number(rules.rs_1m_vs_spy_min_pct ?? 5).toFixed(1)}%`,
-    `距3個月高位 ≤ ${Number(rules.max_dist_from_3m_high_pct ?? 15).toFixed(1)}%`
+    `5日跑贏 ${benchmark} ≥ ${Number(rules.rs_5d_vs_spy_min_pct ?? 3).toFixed(1)}%`,
+    `20日跑贏 ${benchmark} ≥ ${Number(rules.rs_20d_vs_spy_min_pct ?? 8).toFixed(1)}%`,
+    `距52週高位 ≤ ${Number(rules.max_dist_from_52w_high_pct ?? 2).toFixed(1)}%`
   ];
 
   const extra = [];
-  if (Number.isFinite(Number(rules.spy_one_month_return_pct))) {
-    extra.push(`${benchmark} 1M：${formatPct(rules.spy_one_month_return_pct)}`);
+  if (Number.isFinite(Number(rules.spy_five_day_return_pct))) {
+    extra.push(`${benchmark} 5D：${formatPct(rules.spy_five_day_return_pct)}`);
   }
-  if (Number.isFinite(Number(rules.spy_two_month_return_pct))) {
-    extra.push(`${benchmark} 2M：${formatPct(rules.spy_two_month_return_pct)}`);
+  if (Number.isFinite(Number(rules.spy_twenty_day_return_pct))) {
+    extra.push(`${benchmark} 20D：${formatPct(rules.spy_twenty_day_return_pct)}`);
   }
 
   rulesCard.innerHTML = `
@@ -100,14 +100,14 @@ function sortRows(rows, sortKey) {
   const cloned = [...rows];
 
   switch (sortKey) {
-    case "rs_2m_vs_spy_pct_desc":
-      cloned.sort((a, b) => (Number(b.rs_2m_vs_spy_pct) || -Infinity) - (Number(a.rs_2m_vs_spy_pct) || -Infinity));
+    case "rs_20d_vs_spy_pct_desc":
+      cloned.sort((a, b) => (Number(b.rs_20d_vs_spy_pct) || -Infinity) - (Number(a.rs_20d_vs_spy_pct) || -Infinity));
       break;
-    case "rs_1m_vs_spy_pct_desc":
-      cloned.sort((a, b) => (Number(b.rs_1m_vs_spy_pct) || -Infinity) - (Number(a.rs_1m_vs_spy_pct) || -Infinity));
+    case "rs_5d_vs_spy_pct_desc":
+      cloned.sort((a, b) => (Number(b.rs_5d_vs_spy_pct) || -Infinity) - (Number(a.rs_5d_vs_spy_pct) || -Infinity));
       break;
-    case "dist_from_3m_high_pct_desc":
-      cloned.sort((a, b) => (Number(b.dist_from_3m_high_pct) || -Infinity) - (Number(a.dist_from_3m_high_pct) || -Infinity));
+    case "dist_from_52w_high_pct_desc":
+      cloned.sort((a, b) => (Number(b.dist_from_52w_high_pct) || -Infinity) - (Number(a.dist_from_52w_high_pct) || -Infinity));
       break;
     case "market_cap_desc":
       cloned.sort((a, b) => (Number(b.market_cap) || -Infinity) - (Number(a.market_cap) || -Infinity));
@@ -116,7 +116,7 @@ function sortRows(rows, sortKey) {
       cloned.sort((a, b) => String(a.symbol || "").localeCompare(String(b.symbol || "")));
       break;
     default:
-      cloned.sort((a, b) => (Number(b.rs_2m_vs_spy_pct) || -Infinity) - (Number(a.rs_2m_vs_spy_pct) || -Infinity));
+      cloned.sort((a, b) => (Number(b.rs_20d_vs_spy_pct) || -Infinity) - (Number(a.rs_20d_vs_spy_pct) || -Infinity));
   }
 
   return cloned;
@@ -147,15 +147,15 @@ function renderTable(rows) {
         </td>
         <td>
           <span class="badge badge-price">
-            ${formatPrice(row.current_price)}
+            ${formatPrice(row.recent_close)}
           </span>
         </td>
-        <td class="${pctClass(row.one_month_return_pct)}">${formatPct(row.one_month_return_pct)}</td>
-        <td class="${pctClass(row.two_month_return_pct)}">${formatPct(row.two_month_return_pct)}</td>
-        <td class="${pctClass(row.rs_1m_vs_spy_pct)}">${formatPct(row.rs_1m_vs_spy_pct)}</td>
-        <td class="${pctClass(row.rs_2m_vs_spy_pct)}">${formatPct(row.rs_2m_vs_spy_pct)}</td>
-        <td>${formatPrice(row.high_3m)}</td>
-        <td class="${pctClass(row.dist_from_3m_high_pct)}">${formatPct(row.dist_from_3m_high_pct)}</td>
+        <td class="${pctClass(row.five_day_return_pct)}">${formatPct(row.five_day_return_pct)}</td>
+        <td class="${pctClass(row.twenty_day_return_pct)}">${formatPct(row.twenty_day_return_pct)}</td>
+        <td class="${pctClass(row.rs_5d_vs_spy_pct)}">${formatPct(row.rs_5d_vs_spy_pct)}</td>
+        <td class="${pctClass(row.rs_20d_vs_spy_pct)}">${formatPct(row.rs_20d_vs_spy_pct)}</td>
+        <td>${formatPrice(row.high_52w)}</td>
+        <td class="${pctClass(row.dist_from_52w_high_pct)}">${formatPct(row.dist_from_52w_high_pct)}</td>
       </tr>
     `;
   }).join("");
@@ -188,7 +188,7 @@ async function loadData() {
     renderRules(data);
 
     allRows = Array.isArray(data.results) ? data.results : [];
-    currentSort = sortSelect.value || "rs_2m_vs_spy_pct_desc";
+    currentSort = sortSelect.value || "rs_20d_vs_spy_pct_desc";
     applySearchAndSort();
   } catch (error) {
     console.error(error);
