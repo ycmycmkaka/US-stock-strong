@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-22 22:02 UTC",
+  "generated_at": "2026-05-25 22:03 UTC",
   "rules": {
     "market_cap_min": 10000000000,
     "benchmark_symbol": "SPY",
@@ -83,21 +83,6 @@
       "rs_5d_vs_spy_pct": 10.8,
       "rs_20d_vs_spy_pct": 37.3,
       "high_52w": 663.46,
-      "dist_from_52w_high_pct": 0.0
-    },
-    {
-      "symbol": "ERIC",
-      "company": "Ericsson",
-      "exchange": "NasdaqGS",
-      "market_cap": 44866830336,
-      "recent_close": 13.5,
-      "five_day_return_pct": 8.0,
-      "twenty_day_return_pct": 17.7,
-      "spy_five_day_return_pct": 0.9,
-      "spy_twenty_day_return_pct": 4.8,
-      "rs_5d_vs_spy_pct": 7.1,
-      "rs_20d_vs_spy_pct": 12.9,
-      "high_52w": 13.5,
       "dist_from_52w_high_pct": 0.0
     },
     {
