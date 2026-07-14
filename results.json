@@ -1,28 +1,43 @@
 {
-  "generated_at": "2026-07-13 21:46 UTC",
+  "generated_at": "2026-07-14 21:51 UTC",
   "rules": {
     "market_cap_min": 10000000000,
     "benchmark_symbol": "SPY",
     "rs_5d_vs_spy_min_pct": 3,
     "rs_20d_vs_spy_min_pct": 8,
     "max_dist_from_52w_high_pct": 2,
-    "spy_five_day_return_pct": -0.3,
-    "spy_twenty_day_return_pct": 1.0
+    "spy_five_day_return_pct": 0.6,
+    "spy_twenty_day_return_pct": 1.4
   },
   "results": [
     {
-      "symbol": "RGA",
-      "company": "Reinsurance Group of America, I",
-      "exchange": "NYSE",
-      "market_cap": 15592787968,
-      "recent_close": 238.01,
-      "five_day_return_pct": 6.2,
-      "twenty_day_return_pct": 13.1,
-      "spy_five_day_return_pct": -0.3,
-      "spy_twenty_day_return_pct": 1.0,
-      "rs_5d_vs_spy_pct": 6.5,
-      "rs_20d_vs_spy_pct": 12.1,
-      "high_52w": 238.01,
+      "symbol": "CRWD",
+      "company": "CrowdStrike Holdings, Inc.",
+      "exchange": "NasdaqGS",
+      "market_cap": 214577774592,
+      "recent_close": 210.73,
+      "five_day_return_pct": 8.3,
+      "twenty_day_return_pct": 23.5,
+      "spy_five_day_return_pct": 0.6,
+      "spy_twenty_day_return_pct": 1.4,
+      "rs_5d_vs_spy_pct": 7.7,
+      "rs_20d_vs_spy_pct": 22.1,
+      "high_52w": 210.73,
+      "dist_from_52w_high_pct": 0.0
+    },
+    {
+      "symbol": "FTNT",
+      "company": "Fortinet, Inc.",
+      "exchange": "NasdaqGS",
+      "market_cap": 122227728384,
+      "recent_close": 166.83,
+      "five_day_return_pct": 5.1,
+      "twenty_day_return_pct": 14.0,
+      "spy_five_day_return_pct": 0.6,
+      "spy_twenty_day_return_pct": 1.4,
+      "rs_5d_vs_spy_pct": 4.6,
+      "rs_20d_vs_spy_pct": 12.7,
+      "high_52w": 166.83,
       "dist_from_52w_high_pct": 0.0
     }
   ]
