@@ -1,13 +1,59 @@
 {
-  "generated_at": "2026-08-27 00:23 UTC",
+  "generated_at": "2026-08-28 05:03 UTC",
   "rules": {
     "market_cap_min": 10000000000,
     "benchmark_symbol": "SPY",
     "rs_5d_vs_spy_min_pct": 3,
     "rs_20d_vs_spy_min_pct": 8,
     "max_dist_from_52w_high_pct": 2,
-    "spy_five_day_return_pct": -0.4,
-    "spy_twenty_day_return_pct": 3.7
+    "spy_five_day_return_pct": 1.1,
+    "spy_twenty_day_return_pct": 4.1
   },
-  "results": []
+  "results": [
+    {
+      "symbol": "CHYM",
+      "company": "Chime Financial, Inc.",
+      "exchange": "NasdaqGS",
+      "market_cap": 12629600256,
+      "recent_close": 33.36,
+      "five_day_return_pct": 4.4,
+      "twenty_day_return_pct": 49.1,
+      "spy_five_day_return_pct": 1.1,
+      "spy_twenty_day_return_pct": 4.1,
+      "rs_5d_vs_spy_pct": 3.3,
+      "rs_20d_vs_spy_pct": 45.0,
+      "high_52w": 33.36,
+      "dist_from_52w_high_pct": 0.0
+    },
+    {
+      "symbol": "FROG",
+      "company": "JFrog Ltd.",
+      "exchange": "NasdaqGS",
+      "market_cap": 12827035648,
+      "recent_close": 104.03,
+      "five_day_return_pct": 15.9,
+      "twenty_day_return_pct": 36.1,
+      "spy_five_day_return_pct": 1.1,
+      "spy_twenty_day_return_pct": 4.1,
+      "rs_5d_vs_spy_pct": 14.8,
+      "rs_20d_vs_spy_pct": 32.0,
+      "high_52w": 104.03,
+      "dist_from_52w_high_pct": 0.0
+    },
+    {
+      "symbol": "CRWD",
+      "company": "CrowdStrike Holdings, Inc.",
+      "exchange": "NasdaqGS",
+      "market_cap": 233416196096,
+      "recent_close": 227.96,
+      "five_day_return_pct": 19.8,
+      "twenty_day_return_pct": 25.4,
+      "spy_five_day_return_pct": 1.1,
+      "spy_twenty_day_return_pct": 4.1,
+      "rs_5d_vs_spy_pct": 18.7,
+      "rs_20d_vs_spy_pct": 21.3,
+      "high_52w": 227.96,
+      "dist_from_52w_high_pct": 0.0
+    }
+  ]
 }
