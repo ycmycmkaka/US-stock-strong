@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>US Stock Strength & Breakout Scanner</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">每日自動更新</div>
+        <h1>美股強勢及突破蓄勢股篩選器</h1>
+        <p id="subtitle" class="subtitle">短炒強勢股｜市值、相對 SPY 強度、貼近 52 週高位</p>
+      </div>
+      <div id="summaryCard" class="summary-card">載入中…</div>
+    </header>
+
+    <section class="tabs-row" aria-label="Scanner">
+      <button class="tab active" data-mode="momentum">短炒強勢股</button>
+      <button class="tab" data-mode="breakout">突破蓄勢</button>
+    </section>
+
+    <section class="toolbar">
+      <input id="searchInput" type="search" placeholder="搜尋股票代號 / 公司名" />
+      <select id="sortSelect"></select>
+    </section>
+
+    <section class="rules-card" id="rulesCard"></section>
+
+    <section class="table-card">
+      <div class="table-title-row">
+        <div>
+          <h2 id="tableTitle">符合條件股票</h2>
+          <div id="tableHint" class="table-hint"></div>
+        </div>
+        <span id="countText"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead id="resultsHead"></thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" class="empty hidden">暫時冇符合條件股票。</div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
