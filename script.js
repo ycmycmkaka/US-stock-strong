@@ -19,6 +19,7 @@ const tabs = [...document.querySelectorAll(".tab")];
 
 function formatMarketCap(value) {
   const n = Number(value);
+
   if (!Number.isFinite(n)) return "-";
 
   if (n >= 1_000_000_000_000) {
@@ -38,6 +39,7 @@ function formatMarketCap(value) {
 
 function formatDollarVolume(value) {
   const n = Number(value);
+
   if (!Number.isFinite(n)) return "-";
 
   if (n >= 1_000_000_000) {
@@ -57,6 +59,7 @@ function formatDollarVolume(value) {
 
 function formatPrice(value) {
   const n = Number(value);
+
   if (!Number.isFinite(n)) return "-";
 
   return `$${n.toFixed(2)}`;
@@ -64,6 +67,7 @@ function formatPrice(value) {
 
 function formatPct(value) {
   const n = Number(value);
+
   if (!Number.isFinite(n)) return "-";
 
   return `${n.toFixed(1)}%`;
@@ -71,6 +75,7 @@ function formatPct(value) {
 
 function signedPct(value) {
   const n = Number(value);
+
   if (!Number.isFinite(n)) return "-";
 
   return `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -79,9 +84,17 @@ function signedPct(value) {
 function pctClass(value) {
   const n = Number(value);
 
-  if (!Number.isFinite(n)) return "neutral";
-  if (n > 0) return "positive";
-  if (n < 0) return "negative";
+  if (!Number.isFinite(n)) {
+    return "neutral";
+  }
+
+  if (n > 0) {
+    return "positive";
+  }
+
+  if (n < 0) {
+    return "negative";
+  }
 
   return "neutral";
 }
@@ -114,7 +127,9 @@ function escapeHtml(text) {
 }
 
 function getModeRows() {
-  if (!dataStore) return [];
+  if (!dataStore) {
+    return [];
+  }
 
   if (currentMode === "breakout") {
     return Array.isArray(dataStore.breakout_results)
@@ -144,17 +159,19 @@ function getRules() {
 function renderSummary() {
   const updated = dataStore?.generated_at || "Unknown";
 
-  const momentumCount = Array.isArray(dataStore?.momentum_results)
-    ? dataStore.momentum_results.length
-    : (
-        Array.isArray(dataStore?.results)
-          ? dataStore.results.length
-          : 0
-      );
+  const momentumCount =
+    Array.isArray(dataStore?.momentum_results)
+      ? dataStore.momentum_results.length
+      : (
+          Array.isArray(dataStore?.results)
+            ? dataStore.results.length
+            : 0
+        );
 
-  const breakoutCount = Array.isArray(dataStore?.breakout_results)
-    ? dataStore.breakout_results.length
-    : 0;
+  const breakoutCount =
+    Array.isArray(dataStore?.breakout_results)
+      ? dataStore.breakout_results.length
+      : 0;
 
   const label =
     currentMode === "breakout"
@@ -189,8 +206,12 @@ function renderRules() {
       rules.exclude_recent_trading_days ?? 30
     );
 
-    const bandPct = Number(
-      rules.latest_close_band_pct ?? 5
+    const minPct = Number(
+      rules.latest_close_min_pct ?? 0
+    );
+
+    const maxPct = Number(
+      rules.latest_close_max_pct ?? 5
     );
 
     const breakoutWindow = Number(
@@ -222,7 +243,7 @@ function renderRules() {
 
       `最新收市 > MA${maDays}`,
 
-      `距舊3年高位 ±${bandPct.toFixed(0)}%`,
+      `最新收市距舊3年高位 ${minPct.toFixed(0)}% ～ +${maxPct.toFixed(0)}%`,
 
       `${breakoutWindow}日內至少1日收市突破舊頂`,
 
@@ -288,7 +309,9 @@ function renderRules() {
 
   if (
     Number.isFinite(
-      Number(rules.spy_five_day_return_pct)
+      Number(
+        rules.spy_five_day_return_pct
+      )
     )
   ) {
     extra.push(
@@ -300,7 +323,9 @@ function renderRules() {
 
   if (
     Number.isFinite(
-      Number(rules.spy_twenty_day_return_pct)
+      Number(
+        rules.spy_twenty_day_return_pct
+      )
     )
   ) {
     extra.push(
@@ -451,12 +476,10 @@ function sortRows(rows, sortKey) {
       cloned.sort(
         (a, b) =>
           Math.abs(
-            Number(a.dist_from_52w_high_pct) ||
-              Infinity
+            Number(a.dist_from_52w_high_pct) || Infinity
           ) -
           Math.abs(
-            Number(b.dist_from_52w_high_pct) ||
-              Infinity
+            Number(b.dist_from_52w_high_pct) || Infinity
           )
       );
       break;
@@ -465,12 +488,10 @@ function sortRows(rows, sortKey) {
       cloned.sort(
         (a, b) =>
           Math.abs(
-            Number(a.dist_from_old_high_pct) ||
-              Infinity
+            Number(a.dist_from_old_high_pct) || Infinity
           ) -
           Math.abs(
-            Number(b.dist_from_old_high_pct) ||
-              Infinity
+            Number(b.dist_from_old_high_pct) || Infinity
           )
       );
       break;
@@ -502,9 +523,10 @@ function sortRows(rows, sortKey) {
     case "symbol_asc":
       cloned.sort(
         (a, b) =>
-          String(a.symbol || "").localeCompare(
-            String(b.symbol || "")
-          )
+          String(a.symbol || "")
+            .localeCompare(
+              String(b.symbol || "")
+            )
       );
       break;
 
@@ -533,62 +555,64 @@ function renderMomentumRows(rows) {
           </td>
 
           <td>
-            <span
-              class="badge ${marketCapBadgeClass(
+            <span class="badge ${marketCapBadgeClass(
+              row.market_cap
+            )}">
+              ${formatMarketCap(
                 row.market_cap
-              )}"
-            >
-              ${formatMarketCap(row.market_cap)}
+              )}
             </span>
           </td>
 
           <td>
             <span class="badge badge-price">
-              ${formatPrice(row.recent_close)}
+              ${formatPrice(
+                row.recent_close
+              )}
             </span>
           </td>
 
-          <td
-            class="${pctClass(
+          <td class="${pctClass(
+            row.five_day_return_pct
+          )}">
+            ${formatPct(
               row.five_day_return_pct
-            )}"
-          >
-            ${formatPct(row.five_day_return_pct)}
+            )}
           </td>
 
-          <td
-            class="${pctClass(
+          <td class="${pctClass(
+            row.twenty_day_return_pct
+          )}">
+            ${formatPct(
               row.twenty_day_return_pct
-            )}"
-          >
-            ${formatPct(row.twenty_day_return_pct)}
+            )}
           </td>
 
-          <td
-            class="${pctClass(
+          <td class="${pctClass(
+            row.rs_5d_vs_spy_pct
+          )}">
+            ${formatPct(
               row.rs_5d_vs_spy_pct
-            )}"
-          >
-            ${formatPct(row.rs_5d_vs_spy_pct)}
+            )}
           </td>
 
-          <td
-            class="${pctClass(
+          <td class="${pctClass(
+            row.rs_20d_vs_spy_pct
+          )}">
+            ${formatPct(
               row.rs_20d_vs_spy_pct
-            )}"
-          >
-            ${formatPct(row.rs_20d_vs_spy_pct)}
+            )}
           </td>
 
           <td>
-            ${formatPrice(row.high_52w)}
+            ${formatPrice(
+              row.high_52w
+            )}
           </td>
 
-          <td
-            class="${pctClass(
-              row.dist_from_52w_high_pct
-            )}"
-          >
+          <td class="${pctClass(
+            row.dist_from_52w_high_pct
+          )}">
             ${formatPct(
               row.dist_from_52w_high_pct
             )}
@@ -601,93 +625,107 @@ function renderMomentumRows(rows) {
 
 function renderBreakoutRows(rows) {
   return rows
-    .map(row => {
-      const dist = Number(
-        row.dist_from_old_high_pct
-      );
+    .map(
+      row => {
+        const dist = Number(
+          row.dist_from_old_high_pct
+        );
 
-      const distanceClass =
-        Number.isFinite(dist) &&
-        Math.abs(dist) <= 2
-          ? "near-high"
-          : pctClass(dist);
+        const distanceClass =
+          Number.isFinite(dist) &&
+          Math.abs(dist) <= 2
+            ? "near-high"
+            : pctClass(dist);
 
-      return `
-        <tr>
-          <td class="symbol-cell">
-            ${escapeHtml(row.symbol || "")}
-          </td>
-
-          <td class="company-cell">
-            ${escapeHtml(row.company || "")}
-          </td>
-
-          <td>
-            ${escapeHtml(row.exchange || "")}
-          </td>
-
-          <td>
-            <span
-              class="badge ${marketCapBadgeClass(
-                row.market_cap
-              )}"
-            >
-              ${formatMarketCap(row.market_cap)}
-            </span>
-          </td>
-
-          <td>
-            <span class="badge badge-price">
-              ${formatPrice(row.recent_close)}
-            </span>
-          </td>
-
-          <td>
-            ${formatPrice(row.ma200)}
-          </td>
-
-          <td>
-            <span class="badge badge-old-high">
-              ${formatPrice(row.old_3y_high)}
-            </span>
-          </td>
-
-          <td>
-            ${escapeHtml(
-              row.old_3y_high_date || "-"
-            )}
-          </td>
-
-          <td>
-            ${escapeHtml(
-              row.first_breakout_date || "-"
-            )}
-          </td>
-
-          <td class="${distanceClass}">
-            ${signedPct(
-              row.dist_from_old_high_pct
-            )}
-          </td>
-
-          <td>
-            <span class="hold-badge">
+        return `
+          <tr>
+            <td class="symbol-cell">
               ${escapeHtml(
-                row.hold_days_met ?? "-"
-              )}/${escapeHtml(
-                row.hold_days_total ?? 10
+                row.symbol || ""
               )}
-            </span>
-          </td>
+            </td>
 
-          <td class="dollar-volume">
-            ${formatDollarVolume(
-              row.avg_dollar_volume_10d
-            )}
-          </td>
-        </tr>
-      `;
-    })
+            <td class="company-cell">
+              ${escapeHtml(
+                row.company || ""
+              )}
+            </td>
+
+            <td>
+              ${escapeHtml(
+                row.exchange || ""
+              )}
+            </td>
+
+            <td>
+              <span class="badge ${marketCapBadgeClass(
+                row.market_cap
+              )}">
+                ${formatMarketCap(
+                  row.market_cap
+                )}
+              </span>
+            </td>
+
+            <td>
+              <span class="badge badge-price">
+                ${formatPrice(
+                  row.recent_close
+                )}
+              </span>
+            </td>
+
+            <td>
+              ${formatPrice(
+                row.ma200
+              )}
+            </td>
+
+            <td>
+              <span class="badge badge-old-high">
+                ${formatPrice(
+                  row.old_3y_high
+                )}
+              </span>
+            </td>
+
+            <td>
+              ${escapeHtml(
+                row.old_3y_high_date || "-"
+              )}
+            </td>
+
+            <td>
+              ${escapeHtml(
+                row.first_breakout_date || "-"
+              )}
+            </td>
+
+            <td class="${distanceClass}">
+              ${signedPct(
+                row.dist_from_old_high_pct
+              )}
+            </td>
+
+            <td>
+              <span class="hold-badge">
+                ${escapeHtml(
+                  row.hold_days_met ?? "-"
+                )}/${escapeHtml(
+                  row.hold_days_total ?? 10
+                )}
+              </span>
+            </td>
+
+            <td class="dollar-volume">
+              ${formatDollarVolume(
+                row.avg_dollar_volume_10d
+              )}
+            </td>
+          </tr>
+        `;
+      }
+    )
     .join("");
 }
 
@@ -695,12 +733,19 @@ function renderTable(rows) {
   resultsBody.innerHTML = "";
 
   if (!rows.length) {
-    emptyState.classList.remove("hidden");
-    countText.textContent = "顯示 0 隻";
+    emptyState.classList.remove(
+      "hidden"
+    );
+
+    countText.textContent =
+      "顯示 0 隻";
+
     return;
   }
 
-  emptyState.classList.add("hidden");
+  emptyState.classList.add(
+    "hidden"
+  );
 
   countText.textContent =
     `顯示 ${rows.length} 隻`;
@@ -717,22 +762,29 @@ function applySearchAndSort() {
       .trim()
       .toLowerCase();
 
-  filteredRows = allRows.filter(row => {
-    if (!keyword) return true;
+  filteredRows =
+    allRows.filter(
+      row => {
+        if (!keyword) {
+          return true;
+        }
 
-    const symbol =
-      String(row.symbol || "")
-        .toLowerCase();
+        const symbol =
+          String(
+            row.symbol || ""
+          ).toLowerCase();
 
-    const company =
-      String(row.company || "")
-        .toLowerCase();
+        const company =
+          String(
+            row.company || ""
+          ).toLowerCase();
 
-    return (
-      symbol.includes(keyword) ||
-      company.includes(keyword)
+        return (
+          symbol.includes(keyword) ||
+          company.includes(keyword)
+        );
+      }
     );
-  });
 
   filteredRows =
     sortRows(
@@ -740,18 +792,24 @@ function applySearchAndSort() {
       currentSort
     );
 
-  renderTable(filteredRows);
+  renderTable(
+    filteredRows
+  );
 }
 
 function updateModeUI() {
-  tabs.forEach(tab =>
-    tab.classList.toggle(
-      "active",
-      tab.dataset.mode === currentMode
-    )
+  tabs.forEach(
+    tab => {
+      tab.classList.toggle(
+        "active",
+        tab.dataset.mode === currentMode
+      );
+    }
   );
 
-  if (currentMode === "breakout") {
+  if (
+    currentMode === "breakout"
+  ) {
     subtitle.textContent =
       "突破蓄勢｜30日內突破舊3年高位、MA200、高位企穩及成交額";
 
@@ -774,8 +832,11 @@ function updateModeUI() {
   }
 
   setSortOptions();
+
   renderSummary();
+
   renderRules();
+
   renderTableHead();
 
   allRows =
@@ -807,7 +868,9 @@ async function loadData() {
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
 
     summaryCard.innerHTML = `
       <div class="summary-label">
@@ -829,7 +892,8 @@ async function loadData() {
       </div>
     `;
 
-    resultsBody.innerHTML = "";
+    resultsBody.innerHTML =
+      "";
 
     emptyState.classList.remove(
       "hidden"
@@ -840,20 +904,22 @@ async function loadData() {
   }
 }
 
-tabs.forEach(tab => {
-  tab.addEventListener(
-    "click",
-    () => {
-      currentMode =
-        tab.dataset.mode;
+tabs.forEach(
+  tab => {
+    tab.addEventListener(
+      "click",
+      () => {
+        currentMode =
+          tab.dataset.mode;
 
-      searchInput.value =
-        "";
+        searchInput.value =
+          "";
 
-      updateModeUI();
-    }
-  );
-});
+        updateModeUI();
+      }
+    );
+  }
+);
 
 searchInput.addEventListener(
   "input",
