@@ -12,6 +12,22 @@ CONFIG_PATH = BASE_DIR / "config.json"
 RESULTS_PATH = BASE_DIR / "results.json"
 
 
+# ============================================================
+# Breakout 策略額外規則
+# ============================================================
+
+# 最新收市價最多可以高過舊頂 15%
+BREAKOUT_MAX_DISTANCE_FROM_OLD_HIGH_PCT = 15.0
+
+# 突破後曾經出現嘅最高「收市價」
+# 最多只可以高過舊頂 15%
+BREAKOUT_MAX_EXTENSION_PCT = 15.0
+
+# 突破後如果曾經升高，
+# 最新收市相對突破後最高收市回撤超過 10%，淘汰
+BREAKOUT_MAX_PULLBACK_FROM_PEAK_PCT = 10.0
+
+
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -19,7 +35,12 @@ def load_config():
 
 def fetch_us_symbols():
     url1 = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
-    r1 = requests.get(url1, timeout=30)
+
+    r1 = requests.get(
+        url1,
+        timeout=30
+    )
+
     r1.raise_for_status()
 
     df1 = pd.read_csv(
@@ -32,10 +53,17 @@ def fetch_us_symbols():
     ]
 
     df1 = df1[["Symbol"]].copy()
+
     df1["exchange"] = "NASDAQ"
 
+
     url2 = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
-    r2 = requests.get(url2, timeout=30)
+
+    r2 = requests.get(
+        url2,
+        timeout=30
+    )
+
     r2.raise_for_status()
 
     df2 = pd.read_csv(
@@ -101,7 +129,10 @@ def fetch_us_symbols():
     return df
 
 
-def safe_pct_return(current_price, past_price):
+def safe_pct_return(
+    current_price,
+    past_price
+):
     if (
         past_price is None
         or pd.isna(past_price)
@@ -128,7 +159,9 @@ def get_price_at_or_before(
     if s.empty:
         return None
 
-    return float(s.iloc[-1])
+    return float(
+        s.iloc[-1]
+    )
 
 
 def get_price_history(symbols):
@@ -148,7 +181,9 @@ def get_price_history(symbols):
     return history, price
 
 
-def get_benchmark_returns(symbol: str):
+def get_benchmark_returns(
+    symbol: str
+):
     t = Ticker(
         symbol,
         asynchronous=False
@@ -159,7 +194,10 @@ def get_benchmark_returns(symbol: str):
         interval="1d"
     )
 
-    if hist is None or len(hist) == 0:
+    if (
+        hist is None
+        or len(hist) == 0
+    ):
         raise ValueError(
             f"Cannot fetch benchmark history for {symbol}"
         )
@@ -175,7 +213,9 @@ def get_benchmark_returns(symbol: str):
         .tz_convert(None)
     )
 
-    hist = hist.sort_values("date")
+    hist = hist.sort_values(
+        "date"
+    )
 
     closes = (
         hist
@@ -188,7 +228,10 @@ def get_benchmark_returns(symbol: str):
             f"No close data for benchmark {symbol}"
         )
 
-    latest_date = closes.index.max()
+    latest_date = (
+        closes.index.max()
+    )
+
     latest_close = float(
         closes.iloc[-1]
     )
@@ -203,23 +246,30 @@ def get_benchmark_returns(symbol: str):
         - pd.Timedelta(days=30)
     )
 
-    price_5d = get_price_at_or_before(
-        closes,
-        five_days_ago
+    price_5d = (
+        get_price_at_or_before(
+            closes,
+            five_days_ago
+        )
     )
 
-    price_20d = get_price_at_or_before(
-        closes,
-        twenty_days_ago
+    price_20d = (
+        get_price_at_or_before(
+            closes,
+            twenty_days_ago
+        )
     )
 
     return {
-        "latest_close": latest_close,
+        "latest_close":
+            latest_close,
+
         "five_day_return_pct":
             safe_pct_return(
                 latest_close,
                 price_5d
             ),
+
         "twenty_day_return_pct":
             safe_pct_return(
                 latest_close,
@@ -227,6 +277,10 @@ def get_benchmark_returns(symbol: str):
             ),
     }
 
+
+# ============================================================
+# Momentum 篩選
+# ============================================================
 
 def build_momentum_row(
     symbol,
@@ -288,14 +342,18 @@ def build_momentum_row(
         )
     )
 
-    return_5d = safe_pct_return(
-        recent_close,
-        price_5d
+    return_5d = (
+        safe_pct_return(
+            recent_close,
+            price_5d
+        )
     )
 
-    return_20d = safe_pct_return(
-        recent_close,
-        price_20d
+    return_20d = (
+        safe_pct_return(
+            recent_close,
+            price_20d
+        )
     )
 
     if (
@@ -339,18 +397,24 @@ def build_momentum_row(
 
     if (
         rs_5d
-        < rules["rs_5d_vs_spy_min_pct"]
+        < rules[
+            "rs_5d_vs_spy_min_pct"
+        ]
     ):
         return None
 
     if (
         rs_20d
-        < rules["rs_20d_vs_spy_min_pct"]
+        < rules[
+            "rs_20d_vs_spy_min_pct"
+        ]
     ):
         return None
 
     if (
-        abs(dist_from_52w_high_pct)
+        abs(
+            dist_from_52w_high_pct
+        )
         > rules[
             "max_dist_from_52w_high_pct"
         ]
@@ -358,32 +422,70 @@ def build_momentum_row(
         return None
 
     return {
-        "symbol": symbol,
+        "symbol":
+            symbol,
+
         "company":
             info.get("shortName")
             or info.get("longName")
             or symbol,
+
         "exchange":
             info.get("exchangeName")
             or info.get("fullExchangeName")
             or "",
-        "market_cap": market_cap,
+
+        "market_cap":
+            market_cap,
+
         "recent_close":
-            round(recent_close, 2),
+            round(
+                recent_close,
+                2
+            ),
+
         "five_day_return_pct":
-            round(return_5d, 1),
+            round(
+                return_5d,
+                1
+            ),
+
         "twenty_day_return_pct":
-            round(return_20d, 1),
+            round(
+                return_20d,
+                1
+            ),
+
         "spy_five_day_return_pct":
-            round(spy_5d, 1),
+            round(
+                spy_5d,
+                1
+            ),
+
         "spy_twenty_day_return_pct":
-            round(spy_20d, 1),
+            round(
+                spy_20d,
+                1
+            ),
+
         "rs_5d_vs_spy_pct":
-            round(rs_5d, 1),
+            round(
+                rs_5d,
+                1
+            ),
+
         "rs_20d_vs_spy_pct":
-            round(rs_20d, 1),
+            round(
+                rs_20d,
+                1
+            ),
+
         "high_52w":
-            round(high_52w, 2),
+            round(
+                high_52w,
+                2
+            ),
+
         "dist_from_52w_high_pct":
             round(
                 dist_from_52w_high_pct,
@@ -391,6 +493,10 @@ def build_momentum_row(
             ),
     }
 
+
+# ============================================================
+# Breakout Setup
+# ============================================================
 
 def build_breakout_row(
     symbol,
@@ -401,6 +507,10 @@ def build_breakout_row(
     rules = config[
         "breakout_setup"
     ]
+
+    # --------------------------------------------------------
+    # 1. Market Cap
+    # --------------------------------------------------------
 
     market_cap = info.get(
         "marketCap"
@@ -434,10 +544,18 @@ def build_breakout_row(
     df = df.dropna(
         subset=[
             "close",
-            "high",
             "volume"
         ]
     )
+
+    if df.empty:
+        return None
+
+    # 移除任何異常 0 / 負數價格
+    df = df[
+        (df["close"] > 0)
+        & (df["volume"] >= 0)
+    ].copy()
 
     if df.empty:
         return None
@@ -486,15 +604,18 @@ def build_breakout_row(
     if len(df) < min_history:
         return None
 
-    latest = df.iloc[-1]
+    latest = (
+        df.iloc[-1]
+    )
 
     recent_close = float(
         latest["close"]
     )
 
-    # -------------------------
-    # MA200 trend filter
-    # -------------------------
+    # ========================================================
+    # 2. MA200 Trend Filter
+    # ========================================================
+
     ma200 = float(
         df["close"]
         .tail(ma_days)
@@ -504,31 +625,61 @@ def build_breakout_row(
     if recent_close <= ma200:
         return None
 
-    # -------------------------
-    # Old 3-year high
+    # ========================================================
+    # 3. OLD 3-YEAR HIGH
     #
-    # Exclude the most recent
-    # 30 trading days.
-    # -------------------------
+    # 重要修改：
+    #
+    # 舊頂只用「收市價 Close」
+    # 唔再用 intraday High。
+    #
+    # 同時排除最近 N 個交易日。
+    #
+    # Example:
+    #
+    # High  = $120
+    # Close = $110
+    #
+    # 舊頂 = $110
+    # ========================================================
+
     if exclude_days > 0:
         old_window = (
             df.iloc[:-exclude_days]
+            .copy()
         )
     else:
-        old_window = df
+        old_window = (
+            df.copy()
+        )
 
     if old_window.empty:
         return None
 
+    old_window = (
+        old_window
+        .dropna(
+            subset=["close"]
+        )
+    )
+
+    if old_window.empty:
+        return None
+
+    # --------------------------------------------------------
+    # NEW:
+    # 最高歷史「收市價」
+    # --------------------------------------------------------
+
     old_high_idx = (
-        old_window["high"]
+        old_window["close"]
         .idxmax()
     )
 
     old_high = float(
         old_window.loc[
             old_high_idx,
-            "high"
+            "close"
         ]
     )
 
@@ -542,70 +693,62 @@ def build_breakout_row(
         .strftime("%Y-%m-%d")
     )
 
-    if old_high <= 0:
+    if (
+        old_high <= 0
+        or pd.isna(old_high)
+    ):
         return None
 
-    # -------------------------
-    # Latest close must be
-    # between:
+    # ========================================================
+    # 4. 最新收市價距離舊頂
     #
-    # old high +0%
-    # and
-    # old high +5%
+    # 最新 Close 必須：
     #
-    # Example:
+    # >= 舊頂
+    # <= 舊頂 +15%
     #
-    # old high = 100
+    # 舊頂 $100：
     #
-    # 99   -> FAIL
-    # 100  -> PASS
-    # 103  -> PASS
-    # 105  -> PASS
-    # 106  -> FAIL
-    # -------------------------
+    # $99  -> FAIL
+    # $100 -> PASS
+    # $108 -> PASS
+    # $115 -> PASS
+    # $116 -> FAIL
+    # ========================================================
+
     distance_pct = (
         (
-            recent_close / old_high
+            recent_close
+            / old_high
         ) - 1
     ) * 100
 
-    min_distance_pct = float(
-        rules.get(
-            "latest_close_min_pct",
-            0
-        )
-    )
-
-    max_distance_pct = float(
-        rules.get(
-            "latest_close_max_pct",
-            5
-        )
-    )
-
-    if (
-        distance_pct
-        < min_distance_pct
-    ):
+    if distance_pct < 0:
         return None
 
     if (
         distance_pct
-        > max_distance_pct
+        >
+        BREAKOUT_MAX_DISTANCE_FROM_OLD_HIGH_PCT
     ):
         return None
 
-    # -------------------------
-    # Confirmed breakout
+    # ========================================================
+    # 5. Confirmed Breakout
     #
-    # During latest 30 trading
-    # days, at least one CLOSE
-    # must be above old high.
-    # -------------------------
+    # 最近30個交易日至少有一日：
+    #
+    # CLOSE > 舊頂
+    #
+    # 同樣只用 Close，
+    # 唔用 intraday High。
+    # ========================================================
+
     recent_breakout_window = (
         df.tail(
             breakout_window_days
         )
+        .copy()
     )
 
     breakout_closes = (
@@ -614,6 +757,7 @@ def build_breakout_row(
                 "close"
             ] > old_high
         ]
+        .copy()
     )
 
     if breakout_closes.empty:
@@ -623,12 +767,16 @@ def build_breakout_row(
         breakout_closes.iloc[0]
     )
 
-    first_breakout_date = (
+    first_breakout_date_ts = (
         pd.Timestamp(
             first_breakout_row[
                 "date"
             ]
         )
+    )
+
+    first_breakout_date = (
+        first_breakout_date_ts
         .strftime("%Y-%m-%d")
     )
 
@@ -638,15 +786,122 @@ def build_breakout_row(
         ]
     )
 
-    # -------------------------
-    # Hold above old high
+    # ========================================================
+    # 6. 突破後最大延伸
     #
-    # Latest 10 trading days:
-    # at least 8 closes must be
-    # >= old high.
-    # -------------------------
+    # NEW RULE
+    #
+    # 由第一次有效突破之後開始，
+    # 計最高「收市價」。
+    #
+    # 最高 Close 距離舊頂
+    # 唔可以超過 +15%。
+    #
+    # 用嚟排除：
+    #
+    # 舊頂 $100
+    # 曾經收市 $125
+    # 今日跌返 $108
+    #
+    # 雖然今日只係 +8%，
+    # 但之前已經過度延伸，
+    # 所以 FAIL。
+    # ========================================================
+
+    post_breakout = (
+        df[
+            df["date"]
+            >= first_breakout_date_ts
+        ]
+        .copy()
+    )
+
+    if post_breakout.empty:
+        return None
+
+    post_breakout_peak_close = float(
+        post_breakout["close"]
+        .max()
+    )
+
+    post_breakout_peak_idx = (
+        post_breakout["close"]
+        .idxmax()
+    )
+
+    post_breakout_peak_date = (
+        pd.Timestamp(
+            post_breakout.loc[
+                post_breakout_peak_idx,
+                "date"
+            ]
+        )
+        .strftime("%Y-%m-%d")
+    )
+
+    max_extension_pct = (
+        (
+            post_breakout_peak_close
+            / old_high
+        ) - 1
+    ) * 100
+
+    if (
+        max_extension_pct
+        >
+        BREAKOUT_MAX_EXTENSION_PCT
+    ):
+        return None
+
+    # ========================================================
+    # 7. 突破後由高位回撤幅度
+    #
+    # NEW RULE
+    #
+    # 最新收市價相對突破後最高收市價，
+    # 回撤唔可以超過 10%。
+    #
+    # Example:
+    #
+    # Peak Close = $115
+    #
+    # 今日 $108
+    # Drawdown = -6.1%
+    # PASS
+    #
+    # 今日 $100
+    # Drawdown = -13.0%
+    # FAIL
+    # ========================================================
+
+    pullback_from_peak_pct = (
+        (
+            recent_close
+            / post_breakout_peak_close
+        ) - 1
+    ) * 100
+
+    if (
+        pullback_from_peak_pct
+        <
+        -BREAKOUT_MAX_PULLBACK_FROM_PEAK_PCT
+    ):
+        return None
+
+    # ========================================================
+    # 8. Hold Above Old High
+    #
+    # 最近10日，
+    # 至少8日收市 >= 舊頂。
+    #
+    # 即係真正「守得住」舊頂。
+    # ========================================================
+
     recent_hold = (
-        df.tail(hold_days)
+        df.tail(
+            hold_days
+        )
+        .copy()
     )
 
     hold_days_met = int(
@@ -662,13 +917,13 @@ def build_breakout_row(
     ):
         return None
 
-    # -------------------------
-    # Liquidity filter
+    # ========================================================
+    # 9. Liquidity
     #
-    # Average daily dollar
-    # volume over latest 10 days
-    # must exceed $20M.
-    # -------------------------
+    # 最新10日平均成交額
+    # > $20M
+    # ========================================================
+
     recent_dv = (
         df.tail(
             dollar_volume_days
@@ -707,7 +962,8 @@ def build_breakout_row(
     ) * 100
 
     return {
-        "symbol": symbol,
+        "symbol":
+            symbol,
 
         "company":
             info.get("shortName")
@@ -736,6 +992,10 @@ def build_breakout_row(
                 2
             ),
 
+        # --------------------------------
+        # 舊頂 = 歷史最高 Close
+        # --------------------------------
+
         "old_3y_high":
             round(
                 old_high,
@@ -751,6 +1011,10 @@ def build_breakout_row(
                 1
             ),
 
+        # --------------------------------
+        # Breakout
+        # --------------------------------
+
         "first_breakout_date":
             first_breakout_date,
 
@@ -760,11 +1024,45 @@ def build_breakout_row(
                 2
             ),
 
+        # --------------------------------
+        # NEW:
+        # 突破後最高收市
+        # --------------------------------
+
+        "post_breakout_peak_close":
+            round(
+                post_breakout_peak_close,
+                2
+            ),
+
+        "post_breakout_peak_date":
+            post_breakout_peak_date,
+
+        "max_extension_pct":
+            round(
+                max_extension_pct,
+                1
+            ),
+
+        "pullback_from_peak_pct":
+            round(
+                pullback_from_peak_pct,
+                1
+            ),
+
+        # --------------------------------
+        # Hold
+        # --------------------------------
+
         "hold_days_met":
             hold_days_met,
 
         "hold_days_total":
             hold_days,
+
+        # --------------------------------
+        # Liquidity
+        # --------------------------------
 
         "avg_dollar_volume_10d":
             round(
@@ -779,6 +1077,10 @@ def build_breakout_row(
             ),
     }
 
+
+# ============================================================
+# Build Results
+# ============================================================
 
 def build_results():
     config = load_config()
@@ -948,6 +1250,15 @@ def build_results():
         reverse=True
     )
 
+    # --------------------------------------------------------
+    # Breakout 排序
+    #
+    # 優先：
+    # 1. 越接近舊頂
+    # 2. 守住舊頂日數越多
+    # 3. 流動性越高
+    # --------------------------------------------------------
+
     breakout_rows = sorted(
         breakout_rows,
         key=lambda x: (
@@ -996,10 +1307,28 @@ def build_results():
                     ),
             },
 
-            "breakout_setup":
-                config[
+            "breakout_setup": {
+                **config[
                     "breakout_setup"
                 ],
+
+                # 新規則亦寫入 results.json
+                # 方便前端日後顯示
+                "old_high_price_source":
+                    "close",
+
+                "latest_close_min_pct":
+                    0.0,
+
+                "latest_close_max_pct":
+                    BREAKOUT_MAX_DISTANCE_FROM_OLD_HIGH_PCT,
+
+                "max_post_breakout_extension_pct":
+                    BREAKOUT_MAX_EXTENSION_PCT,
+
+                "max_pullback_from_peak_pct":
+                    BREAKOUT_MAX_PULLBACK_FROM_PEAK_PCT,
+            },
         },
 
         "results":
