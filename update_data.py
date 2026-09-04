@@ -21,18 +21,42 @@ def fetch_us_symbols():
     url1 = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
     r1 = requests.get(url1, timeout=30)
     r1.raise_for_status()
-    df1 = pd.read_csv(pd.io.common.StringIO(r1.text), sep="|")
-    df1 = df1[df1["Symbol"] != "File Creation Time"]
+
+    df1 = pd.read_csv(
+        pd.io.common.StringIO(r1.text),
+        sep="|"
+    )
+
+    df1 = df1[
+        df1["Symbol"] != "File Creation Time"
+    ]
+
     df1 = df1[["Symbol"]].copy()
     df1["exchange"] = "NASDAQ"
 
     url2 = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
     r2 = requests.get(url2, timeout=30)
     r2.raise_for_status()
-    df2 = pd.read_csv(pd.io.common.StringIO(r2.text), sep="|")
-    df2 = df2[df2["ACT Symbol"] != "File Creation Time"]
-    df2 = df2.rename(columns={"ACT Symbol": "Symbol", "Exchange": "exchange"})
-    df2 = df2[["Symbol", "exchange"]].copy()
+
+    df2 = pd.read_csv(
+        pd.io.common.StringIO(r2.text),
+        sep="|"
+    )
+
+    df2 = df2[
+        df2["ACT Symbol"] != "File Creation Time"
+    ]
+
+    df2 = df2.rename(
+        columns={
+            "ACT Symbol": "Symbol",
+            "Exchange": "exchange"
+        }
+    )
+
+    df2 = df2[
+        ["Symbol", "exchange"]
+    ].copy()
 
     exchange_map = {
         "N": "NYSE",
@@ -41,152 +65,415 @@ def fetch_us_symbols():
         "Z": "BATS",
         "V": "IEX",
     }
-    df2["exchange"] = df2["exchange"].map(exchange_map).fillna(df2["exchange"])
 
-    df = pd.concat([df1, df2], ignore_index=True)
+    df2["exchange"] = (
+        df2["exchange"]
+        .map(exchange_map)
+        .fillna(df2["exchange"])
+    )
+
+    df = pd.concat(
+        [df1, df2],
+        ignore_index=True
+    )
+
     df = df.dropna()
-    df = df[~df["Symbol"].astype(str).str.contains(r"[\^\$]", regex=True)]
-    df = df[~df["Symbol"].astype(str).str.contains(r"\.", regex=True)]
-    df = df.drop_duplicates(subset=["Symbol"]).reset_index(drop=True)
+
+    df = df[
+        ~df["Symbol"]
+        .astype(str)
+        .str.contains(r"[\^\$]", regex=True)
+    ]
+
+    df = df[
+        ~df["Symbol"]
+        .astype(str)
+        .str.contains(r"\.", regex=True)
+    ]
+
+    df = (
+        df.drop_duplicates(
+            subset=["Symbol"]
+        )
+        .reset_index(drop=True)
+    )
+
     return df
 
 
 def safe_pct_return(current_price, past_price):
-    if past_price is None or pd.isna(past_price) or past_price <= 0:
+    if (
+        past_price is None
+        or pd.isna(past_price)
+        or past_price <= 0
+    ):
         return None
-    return (current_price / past_price - 1) * 100
+
+    return (
+        current_price / past_price - 1
+    ) * 100
 
 
-def get_price_at_or_before(series: pd.Series, target_date: pd.Timestamp):
+def get_price_at_or_before(
+    series: pd.Series,
+    target_date: pd.Timestamp
+):
     if series.empty:
         return None
-    s = series[series.index <= target_date]
+
+    s = series[
+        series.index <= target_date
+    ]
+
     if s.empty:
         return None
+
     return float(s.iloc[-1])
 
 
 def get_price_history(symbols):
-    # 3y is required for the breakout-setup scanner.
-    ticker = Ticker(symbols, asynchronous=True, max_workers=8)
-    history = ticker.history(period="3y", interval="1d")
+    ticker = Ticker(
+        symbols,
+        asynchronous=True,
+        max_workers=8
+    )
+
+    history = ticker.history(
+        period="3y",
+        interval="1d"
+    )
+
     price = ticker.price
+
     return history, price
 
 
 def get_benchmark_returns(symbol: str):
-    t = Ticker(symbol, asynchronous=False)
-    hist = t.history(period="6mo", interval="1d")
+    t = Ticker(
+        symbol,
+        asynchronous=False
+    )
+
+    hist = t.history(
+        period="6mo",
+        interval="1d"
+    )
 
     if hist is None or len(hist) == 0:
-        raise ValueError(f"Cannot fetch benchmark history for {symbol}")
+        raise ValueError(
+            f"Cannot fetch benchmark history for {symbol}"
+        )
 
     hist = hist.reset_index()
-    hist["date"] = pd.to_datetime(hist["date"], utc=True).dt.tz_convert(None)
+
+    hist["date"] = (
+        pd.to_datetime(
+            hist["date"],
+            utc=True
+        )
+        .dt
+        .tz_convert(None)
+    )
+
     hist = hist.sort_values("date")
-    closes = hist.set_index("date")["close"].dropna()
+
+    closes = (
+        hist
+        .set_index("date")["close"]
+        .dropna()
+    )
 
     if closes.empty:
-        raise ValueError(f"No close data for benchmark {symbol}")
+        raise ValueError(
+            f"No close data for benchmark {symbol}"
+        )
 
     latest_date = closes.index.max()
-    latest_close = float(closes.iloc[-1])
+    latest_close = float(
+        closes.iloc[-1]
+    )
 
-    five_days_ago = latest_date - pd.Timedelta(days=7)
-    twenty_days_ago = latest_date - pd.Timedelta(days=30)
+    five_days_ago = (
+        latest_date
+        - pd.Timedelta(days=7)
+    )
 
-    price_5d = get_price_at_or_before(closes, five_days_ago)
-    price_20d = get_price_at_or_before(closes, twenty_days_ago)
+    twenty_days_ago = (
+        latest_date
+        - pd.Timedelta(days=30)
+    )
+
+    price_5d = get_price_at_or_before(
+        closes,
+        five_days_ago
+    )
+
+    price_20d = get_price_at_or_before(
+        closes,
+        twenty_days_ago
+    )
 
     return {
         "latest_close": latest_close,
-        "five_day_return_pct": safe_pct_return(latest_close, price_5d),
-        "twenty_day_return_pct": safe_pct_return(latest_close, price_20d),
+        "five_day_return_pct":
+            safe_pct_return(
+                latest_close,
+                price_5d
+            ),
+        "twenty_day_return_pct":
+            safe_pct_return(
+                latest_close,
+                price_20d
+            ),
     }
 
 
-def build_momentum_row(symbol, info, stock_hist, config, spy_5d, spy_20d):
+def build_momentum_row(
+    symbol,
+    info,
+    stock_hist,
+    config,
+    spy_5d,
+    spy_20d
+):
     rules = config["momentum"]
 
-    market_cap = info.get("marketCap")
-    if market_cap is None or market_cap < rules["market_cap_min"]:
+    market_cap = info.get(
+        "marketCap"
+    )
+
+    if (
+        market_cap is None
+        or market_cap
+        < rules["market_cap_min"]
+    ):
         return None
 
-    stock_hist = stock_hist.sort_values("date").copy()
-    closes = stock_hist.set_index("date")["close"].dropna()
+    stock_hist = (
+        stock_hist
+        .sort_values("date")
+        .copy()
+    )
+
+    closes = (
+        stock_hist
+        .set_index("date")["close"]
+        .dropna()
+    )
+
     if len(closes) < 260:
         return None
 
-    latest_date = closes.index.max()
-    recent_close = float(closes.iloc[-1])
+    latest_date = (
+        closes.index.max()
+    )
 
-    price_5d = get_price_at_or_before(closes, latest_date - pd.Timedelta(days=7))
-    price_20d = get_price_at_or_before(closes, latest_date - pd.Timedelta(days=30))
+    recent_close = float(
+        closes.iloc[-1]
+    )
 
-    return_5d = safe_pct_return(recent_close, price_5d)
-    return_20d = safe_pct_return(recent_close, price_20d)
-    if return_5d is None or return_20d is None:
+    price_5d = (
+        get_price_at_or_before(
+            closes,
+            latest_date
+            - pd.Timedelta(days=7)
+        )
+    )
+
+    price_20d = (
+        get_price_at_or_before(
+            closes,
+            latest_date
+            - pd.Timedelta(days=30)
+        )
+    )
+
+    return_5d = safe_pct_return(
+        recent_close,
+        price_5d
+    )
+
+    return_20d = safe_pct_return(
+        recent_close,
+        price_20d
+    )
+
+    if (
+        return_5d is None
+        or return_20d is None
+    ):
         return None
 
-    rs_5d = return_5d - spy_5d
-    rs_20d = return_20d - spy_20d
+    rs_5d = (
+        return_5d - spy_5d
+    )
 
-    trailing_52w = stock_hist.tail(252)
+    rs_20d = (
+        return_20d - spy_20d
+    )
+
+    trailing_52w = (
+        stock_hist.tail(252)
+    )
+
     if trailing_52w.empty:
         return None
 
-    high_52w = float(trailing_52w["high"].dropna().max())
-    if not high_52w or pd.isna(high_52w):
+    high_52w = float(
+        trailing_52w["high"]
+        .dropna()
+        .max()
+    )
+
+    if (
+        not high_52w
+        or pd.isna(high_52w)
+    ):
         return None
 
-    dist_from_52w_high_pct = ((recent_close / high_52w) - 1) * 100
+    dist_from_52w_high_pct = (
+        (
+            recent_close / high_52w
+        ) - 1
+    ) * 100
 
-    if rs_5d < rules["rs_5d_vs_spy_min_pct"]:
+    if (
+        rs_5d
+        < rules["rs_5d_vs_spy_min_pct"]
+    ):
         return None
-    if rs_20d < rules["rs_20d_vs_spy_min_pct"]:
+
+    if (
+        rs_20d
+        < rules["rs_20d_vs_spy_min_pct"]
+    ):
         return None
-    if abs(dist_from_52w_high_pct) > rules["max_dist_from_52w_high_pct"]:
+
+    if (
+        abs(dist_from_52w_high_pct)
+        > rules[
+            "max_dist_from_52w_high_pct"
+        ]
+    ):
         return None
 
     return {
         "symbol": symbol,
-        "company": info.get("shortName") or info.get("longName") or symbol,
-        "exchange": info.get("exchangeName") or info.get("fullExchangeName") or "",
+        "company":
+            info.get("shortName")
+            or info.get("longName")
+            or symbol,
+        "exchange":
+            info.get("exchangeName")
+            or info.get("fullExchangeName")
+            or "",
         "market_cap": market_cap,
-        "recent_close": round(recent_close, 2),
-        "five_day_return_pct": round(return_5d, 1),
-        "twenty_day_return_pct": round(return_20d, 1),
-        "spy_five_day_return_pct": round(spy_5d, 1),
-        "spy_twenty_day_return_pct": round(spy_20d, 1),
-        "rs_5d_vs_spy_pct": round(rs_5d, 1),
-        "rs_20d_vs_spy_pct": round(rs_20d, 1),
-        "high_52w": round(high_52w, 2),
-        "dist_from_52w_high_pct": round(dist_from_52w_high_pct, 1),
+        "recent_close":
+            round(recent_close, 2),
+        "five_day_return_pct":
+            round(return_5d, 1),
+        "twenty_day_return_pct":
+            round(return_20d, 1),
+        "spy_five_day_return_pct":
+            round(spy_5d, 1),
+        "spy_twenty_day_return_pct":
+            round(spy_20d, 1),
+        "rs_5d_vs_spy_pct":
+            round(rs_5d, 1),
+        "rs_20d_vs_spy_pct":
+            round(rs_20d, 1),
+        "high_52w":
+            round(high_52w, 2),
+        "dist_from_52w_high_pct":
+            round(
+                dist_from_52w_high_pct,
+                1
+            ),
     }
 
 
-def build_breakout_row(symbol, info, stock_hist, config):
-    rules = config["breakout_setup"]
+def build_breakout_row(
+    symbol,
+    info,
+    stock_hist,
+    config
+):
+    rules = config[
+        "breakout_setup"
+    ]
 
-    market_cap = info.get("marketCap")
-    if market_cap is None or market_cap < rules["market_cap_min"]:
+    market_cap = info.get(
+        "marketCap"
+    )
+
+    if (
+        market_cap is None
+        or market_cap
+        < rules["market_cap_min"]
+    ):
         return None
 
-    required_columns = {"date", "close", "high", "volume"}
-    if not required_columns.issubset(stock_hist.columns):
+    required_columns = {
+        "date",
+        "close",
+        "high",
+        "volume"
+    }
+
+    if not required_columns.issubset(
+        stock_hist.columns
+    ):
         return None
 
-    df = stock_hist.sort_values("date").copy()
-    df = df.dropna(subset=["close", "high", "volume"])
+    df = (
+        stock_hist
+        .sort_values("date")
+        .copy()
+    )
+
+    df = df.dropna(
+        subset=[
+            "close",
+            "high",
+            "volume"
+        ]
+    )
+
     if df.empty:
         return None
 
-    exclude_days = int(rules["exclude_recent_trading_days"])
-    breakout_window_days = int(rules.get("breakout_window_days", 30))
-    ma_days = int(rules["ma_days"])
-    hold_days = int(rules["hold_days"])
-    hold_required_days = int(rules["hold_required_days"])
-    dollar_volume_days = int(rules["avg_dollar_volume_days"])
+    exclude_days = int(
+        rules[
+            "exclude_recent_trading_days"
+        ]
+    )
+
+    breakout_window_days = int(
+        rules.get(
+            "breakout_window_days",
+            30
+        )
+    )
+
+    ma_days = int(
+        rules["ma_days"]
+    )
+
+    hold_days = int(
+        rules["hold_days"]
+    )
+
+    hold_required_days = int(
+        rules[
+            "hold_required_days"
+        ]
+    )
+
+    dollar_volume_days = int(
+        rules[
+            "avg_dollar_volume_days"
+        ]
+    )
 
     min_history = max(
         ma_days,
@@ -195,169 +482,547 @@ def build_breakout_row(symbol, info, stock_hist, config):
         hold_days,
         dollar_volume_days,
     )
+
     if len(df) < min_history:
         return None
 
     latest = df.iloc[-1]
-    recent_close = float(latest["close"])
 
-    # Trend filter
-    ma200 = float(df["close"].tail(ma_days).mean())
+    recent_close = float(
+        latest["close"]
+    )
+
+    # -------------------------
+    # MA200 trend filter
+    # -------------------------
+    ma200 = float(
+        df["close"]
+        .tail(ma_days)
+        .mean()
+    )
+
     if recent_close <= ma200:
         return None
 
-    # Old 3-year high:
-    # use the 3-year history but exclude the most recent 30 trading days.
-    old_window = df.iloc[:-exclude_days] if exclude_days > 0 else df
+    # -------------------------
+    # Old 3-year high
+    #
+    # Exclude the most recent
+    # 30 trading days.
+    # -------------------------
+    if exclude_days > 0:
+        old_window = (
+            df.iloc[:-exclude_days]
+        )
+    else:
+        old_window = df
+
     if old_window.empty:
         return None
 
-    old_high_idx = old_window["high"].idxmax()
-    old_high = float(old_window.loc[old_high_idx, "high"])
-    old_high_date = pd.Timestamp(old_window.loc[old_high_idx, "date"]).strftime("%Y-%m-%d")
+    old_high_idx = (
+        old_window["high"]
+        .idxmax()
+    )
+
+    old_high = float(
+        old_window.loc[
+            old_high_idx,
+            "high"
+        ]
+    )
+
+    old_high_date = (
+        pd.Timestamp(
+            old_window.loc[
+                old_high_idx,
+                "date"
+            ]
+        )
+        .strftime("%Y-%m-%d")
+    )
+
     if old_high <= 0:
         return None
 
-    # Latest close must still be within +/-5% of the old high.
-    distance_pct = ((recent_close / old_high) - 1) * 100
-    band_pct = float(rules["latest_close_band_pct"])
-    if abs(distance_pct) > band_pct:
+    # -------------------------
+    # Latest close must be
+    # between:
+    #
+    # old high +0%
+    # and
+    # old high +5%
+    #
+    # Example:
+    #
+    # old high = 100
+    #
+    # 99   -> FAIL
+    # 100  -> PASS
+    # 103  -> PASS
+    # 105  -> PASS
+    # 106  -> FAIL
+    # -------------------------
+    distance_pct = (
+        (
+            recent_close / old_high
+        ) - 1
+    ) * 100
+
+    min_distance_pct = float(
+        rules.get(
+            "latest_close_min_pct",
+            0
+        )
+    )
+
+    max_distance_pct = float(
+        rules.get(
+            "latest_close_max_pct",
+            5
+        )
+    )
+
+    if (
+        distance_pct
+        < min_distance_pct
+    ):
         return None
 
-    # Confirmed breakout:
-    # within the latest 30 trading days, at least one CLOSE must be above old high.
-    recent_breakout_window = df.tail(breakout_window_days)
-    breakout_closes = recent_breakout_window[
-        recent_breakout_window["close"] > old_high
-    ]
+    if (
+        distance_pct
+        > max_distance_pct
+    ):
+        return None
+
+    # -------------------------
+    # Confirmed breakout
+    #
+    # During latest 30 trading
+    # days, at least one CLOSE
+    # must be above old high.
+    # -------------------------
+    recent_breakout_window = (
+        df.tail(
+            breakout_window_days
+        )
+    )
+
+    breakout_closes = (
+        recent_breakout_window[
+            recent_breakout_window[
+                "close"
+            ] > old_high
+        ]
+    )
+
     if breakout_closes.empty:
         return None
 
-    first_breakout_row = breakout_closes.iloc[0]
-    first_breakout_date = pd.Timestamp(first_breakout_row["date"]).strftime("%Y-%m-%d")
-    breakout_close = float(first_breakout_row["close"])
+    first_breakout_row = (
+        breakout_closes.iloc[0]
+    )
 
-    # Hold rule:
-    # at least 8 of the latest 10 closes must be at or above old high.
-    recent_hold = df.tail(hold_days)
-    hold_days_met = int((recent_hold["close"] >= old_high).sum())
-    if hold_days_met < hold_required_days:
+    first_breakout_date = (
+        pd.Timestamp(
+            first_breakout_row[
+                "date"
+            ]
+        )
+        .strftime("%Y-%m-%d")
+    )
+
+    breakout_close = float(
+        first_breakout_row[
+            "close"
+        ]
+    )
+
+    # -------------------------
+    # Hold above old high
+    #
+    # Latest 10 trading days:
+    # at least 8 closes must be
+    # >= old high.
+    # -------------------------
+    recent_hold = (
+        df.tail(hold_days)
+    )
+
+    hold_days_met = int(
+        (
+            recent_hold["close"]
+            >= old_high
+        ).sum()
+    )
+
+    if (
+        hold_days_met
+        < hold_required_days
+    ):
         return None
 
+    # -------------------------
     # Liquidity filter
-    recent_dv = df.tail(dollar_volume_days).copy()
-    recent_dv["dollar_volume"] = recent_dv["close"] * recent_dv["volume"]
-    avg_dollar_volume = float(recent_dv["dollar_volume"].mean())
-    if avg_dollar_volume <= float(rules["avg_dollar_volume_min"]):
+    #
+    # Average daily dollar
+    # volume over latest 10 days
+    # must exceed $20M.
+    # -------------------------
+    recent_dv = (
+        df.tail(
+            dollar_volume_days
+        )
+        .copy()
+    )
+
+    recent_dv[
+        "dollar_volume"
+    ] = (
+        recent_dv["close"]
+        * recent_dv["volume"]
+    )
+
+    avg_dollar_volume = float(
+        recent_dv[
+            "dollar_volume"
+        ].mean()
+    )
+
+    if (
+        avg_dollar_volume
+        <= float(
+            rules[
+                "avg_dollar_volume_min"
+            ]
+        )
+    ):
         return None
 
-    breakout_pct = ((recent_close / old_high) - 1) * 100
+    breakout_pct = (
+        (
+            recent_close
+            / old_high
+        ) - 1
+    ) * 100
 
     return {
         "symbol": symbol,
-        "company": info.get("shortName") or info.get("longName") or symbol,
-        "exchange": info.get("exchangeName") or info.get("fullExchangeName") or "",
-        "market_cap": market_cap,
-        "recent_close": round(recent_close, 2),
-        "ma200": round(ma200, 2),
-        "old_3y_high": round(old_high, 2),
-        "old_3y_high_date": old_high_date,
-        "dist_from_old_high_pct": round(distance_pct, 1),
-        "first_breakout_date": first_breakout_date,
-        "first_breakout_close": round(breakout_close, 2),
-        "hold_days_met": hold_days_met,
-        "hold_days_total": hold_days,
-        "avg_dollar_volume_10d": round(avg_dollar_volume, 0),
-        "breakout_pct": round(breakout_pct, 1),
+
+        "company":
+            info.get("shortName")
+            or info.get("longName")
+            or symbol,
+
+        "exchange":
+            info.get("exchangeName")
+            or info.get(
+                "fullExchangeName"
+            )
+            or "",
+
+        "market_cap":
+            market_cap,
+
+        "recent_close":
+            round(
+                recent_close,
+                2
+            ),
+
+        "ma200":
+            round(
+                ma200,
+                2
+            ),
+
+        "old_3y_high":
+            round(
+                old_high,
+                2
+            ),
+
+        "old_3y_high_date":
+            old_high_date,
+
+        "dist_from_old_high_pct":
+            round(
+                distance_pct,
+                1
+            ),
+
+        "first_breakout_date":
+            first_breakout_date,
+
+        "first_breakout_close":
+            round(
+                breakout_close,
+                2
+            ),
+
+        "hold_days_met":
+            hold_days_met,
+
+        "hold_days_total":
+            hold_days,
+
+        "avg_dollar_volume_10d":
+            round(
+                avg_dollar_volume,
+                0
+            ),
+
+        "breakout_pct":
+            round(
+                breakout_pct,
+                1
+            ),
     }
 
 
 def build_results():
     config = load_config()
-    benchmark_symbol = config["benchmark_symbol"]
 
-    symbols_df = fetch_us_symbols()
-    symbols = symbols_df["Symbol"].tolist()
+    benchmark_symbol = (
+        config[
+            "benchmark_symbol"
+        ]
+    )
 
-    benchmark = get_benchmark_returns(benchmark_symbol)
-    spy_5d = benchmark["five_day_return_pct"]
-    spy_20d = benchmark["twenty_day_return_pct"]
+    symbols_df = (
+        fetch_us_symbols()
+    )
+
+    symbols = (
+        symbols_df["Symbol"]
+        .tolist()
+    )
+
+    benchmark = (
+        get_benchmark_returns(
+            benchmark_symbol
+        )
+    )
+
+    spy_5d = (
+        benchmark[
+            "five_day_return_pct"
+        ]
+    )
+
+    spy_20d = (
+        benchmark[
+            "twenty_day_return_pct"
+        ]
+    )
 
     batch_size = 80
+
     momentum_rows = []
     breakout_rows = []
 
-    for i in range(0, len(symbols), batch_size):
-        batch = symbols[i:i + batch_size]
+    for i in range(
+        0,
+        len(symbols),
+        batch_size
+    ):
+        batch = symbols[
+            i:i + batch_size
+        ]
 
         try:
-            history, summary = get_price_history(batch)
+            history, summary = (
+                get_price_history(
+                    batch
+                )
+            )
+
         except Exception:
             time.sleep(1)
             continue
 
-        history_df = history.reset_index() if hasattr(history, "reset_index") else pd.DataFrame()
-        if history_df.empty or "date" not in history_df.columns or "symbol" not in history_df.columns:
+        if hasattr(
+            history,
+            "reset_index"
+        ):
+            history_df = (
+                history.reset_index()
+            )
+        else:
+            history_df = (
+                pd.DataFrame()
+            )
+
+        if (
+            history_df.empty
+            or "date"
+            not in history_df.columns
+            or "symbol"
+            not in history_df.columns
+        ):
             continue
 
-        history_df["date"] = pd.to_datetime(history_df["date"], utc=True).dt.tz_convert(None)
-        history_df = history_df.sort_values(["symbol", "date"])
+        history_df["date"] = (
+            pd.to_datetime(
+                history_df["date"],
+                utc=True
+            )
+            .dt
+            .tz_convert(None)
+        )
+
+        history_df = (
+            history_df
+            .sort_values(
+                [
+                    "symbol",
+                    "date"
+                ]
+            )
+        )
 
         for symbol in batch:
             try:
-                info = summary.get(symbol, {})
-                if not isinstance(info, dict):
+                info = summary.get(
+                    symbol,
+                    {}
+                )
+
+                if not isinstance(
+                    info,
+                    dict
+                ):
                     continue
 
-                stock_hist = history_df[history_df["symbol"] == symbol].copy()
+                stock_hist = (
+                    history_df[
+                        history_df[
+                            "symbol"
+                        ] == symbol
+                    ]
+                    .copy()
+                )
+
                 if stock_hist.empty:
                     continue
 
-                momentum_row = build_momentum_row(
-                    symbol, info, stock_hist, config, spy_5d, spy_20d
+                momentum_row = (
+                    build_momentum_row(
+                        symbol,
+                        info,
+                        stock_hist,
+                        config,
+                        spy_5d,
+                        spy_20d
+                    )
                 )
-                if momentum_row:
-                    momentum_rows.append(momentum_row)
 
-                breakout_row = build_breakout_row(symbol, info, stock_hist, config)
+                if momentum_row:
+                    momentum_rows.append(
+                        momentum_row
+                    )
+
+                breakout_row = (
+                    build_breakout_row(
+                        symbol,
+                        info,
+                        stock_hist,
+                        config
+                    )
+                )
+
                 if breakout_row:
-                    breakout_rows.append(breakout_row)
+                    breakout_rows.append(
+                        breakout_row
+                    )
 
             except Exception:
                 continue
 
     momentum_rows = sorted(
-        momentum_rows, key=lambda x: x["rs_20d_vs_spy_pct"], reverse=True
+        momentum_rows,
+        key=lambda x:
+            x[
+                "rs_20d_vs_spy_pct"
+            ],
+        reverse=True
     )
+
     breakout_rows = sorted(
         breakout_rows,
         key=lambda x: (
-            -abs(x["dist_from_old_high_pct"]),
-            x["hold_days_met"],
-            x["avg_dollar_volume_10d"],
+            -abs(
+                x[
+                    "dist_from_old_high_pct"
+                ]
+            ),
+            x[
+                "hold_days_met"
+            ],
+            x[
+                "avg_dollar_volume_10d"
+            ],
         ),
-        reverse=True,
+        reverse=True
     )
 
     output = {
-        "generated_at": pd.Timestamp.now("UTC").strftime("%Y-%m-%d %H:%M UTC"),
-        "benchmark_symbol": benchmark_symbol,
+        "generated_at":
+            pd.Timestamp
+            .now("UTC")
+            .strftime(
+                "%Y-%m-%d %H:%M UTC"
+            ),
+
+        "benchmark_symbol":
+            benchmark_symbol,
+
         "rules": {
             "momentum": {
-                **config["momentum"],
-                "spy_five_day_return_pct": round(spy_5d, 1),
-                "spy_twenty_day_return_pct": round(spy_20d, 1),
+                **config[
+                    "momentum"
+                ],
+
+                "spy_five_day_return_pct":
+                    round(
+                        spy_5d,
+                        1
+                    ),
+
+                "spy_twenty_day_return_pct":
+                    round(
+                        spy_20d,
+                        1
+                    ),
             },
-            "breakout_setup": config["breakout_setup"],
+
+            "breakout_setup":
+                config[
+                    "breakout_setup"
+                ],
         },
-        # Keep "results" for backwards compatibility with the old front-end.
-        "results": momentum_rows,
-        "momentum_results": momentum_rows,
-        "breakout_results": breakout_rows,
+
+        "results":
+            momentum_rows,
+
+        "momentum_results":
+            momentum_rows,
+
+        "breakout_results":
+            breakout_rows,
     }
 
-    with open(RESULTS_PATH, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    with open(
+        RESULTS_PATH,
+        "w",
+        encoding="utf-8"
+    ) as f:
+        json.dump(
+            output,
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
 
 
 if __name__ == "__main__":
