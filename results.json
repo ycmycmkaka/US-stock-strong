@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-04 22:41 UTC",
+  "generated_at": "2026-09-07 23:12 UTC",
   "benchmark_symbol": "SPY",
   "rules": {
     "momentum": {
@@ -31,6 +31,27 @@
   "momentum_results": [],
   "breakout_results": [
     {
+      "symbol": "BIO",
+      "company": "Bio-Rad Laboratories, Inc.",
+      "exchange": "NYSE",
+      "market_cap": 10332919808,
+      "recent_close": 386.11,
+      "ma200": 302.0,
+      "old_3y_high": 382.24,
+      "old_3y_high_date": "2023-09-05",
+      "dist_from_old_high_pct": 1.0,
+      "first_breakout_date": "2026-08-25",
+      "first_breakout_close": 390.34,
+      "post_breakout_peak_close": 390.34,
+      "post_breakout_peak_date": "2026-08-25",
+      "max_extension_pct": 2.1,
+      "pullback_from_peak_pct": -1.1,
+      "hold_days_met": 8,
+      "hold_days_total": 10,
+      "avg_dollar_volume_10d": 91811287.0,
+      "breakout_pct": 1.0
+    },
+    {
       "symbol": "DNTH",
       "company": "Dianthus Therapeutics, Inc.",
       "exchange": "NasdaqCM",
@@ -48,7 +69,7 @@
       "pullback_from_peak_pct": -6.8,
       "hold_days_met": 9,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 54189777.0,
+      "avg_dollar_volume_10d": 54190123.0,
       "breakout_pct": 2.3
     },
     {
@@ -69,7 +90,7 @@
       "pullback_from_peak_pct": -3.1,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 121286205.0,
+      "avg_dollar_volume_10d": 121288062.0,
       "breakout_pct": 4.7
     },
     {
@@ -90,7 +111,7 @@
       "pullback_from_peak_pct": -4.5,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 869991642.0,
+      "avg_dollar_volume_10d": 869996281.0,
       "breakout_pct": 8.2
     },
     {
@@ -111,7 +132,7 @@
       "pullback_from_peak_pct": -2.4,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 238039457.0,
+      "avg_dollar_volume_10d": 238045140.0,
       "breakout_pct": 9.9
     },
     {
@@ -132,7 +153,7 @@
       "pullback_from_peak_pct": -1.6,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 912778387.0,
+      "avg_dollar_volume_10d": 914248704.0,
       "breakout_pct": 12.6
     }
   ]
