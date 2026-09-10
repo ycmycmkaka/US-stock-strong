@@ -14,6 +14,38 @@ RESULTS_PATH = BASE_DIR / "results.json"
 
 
 # ============================================================
+# DEBUG COUNTERS
+# ============================================================
+
+momentum_debug = {
+    "checked": 0,
+    "market_cap_pass": 0,
+    "history_pass": 0,
+    "returns_pass": 0,
+    "rs_5d_pass": 0,
+    "rs_20d_pass": 0,
+    "high_52w_pass": 0,
+    "final": 0
+}
+
+breakout_debug = {
+    "checked": 0,
+    "market_cap_pass": 0,
+    "history_pass": 0,
+    "ma200_pass": 0,
+    "latest_distance_pass": 0,
+    "breakout_pass": 0,
+    "extension_pass": 0,
+    "consolidation_range_pass": 0,
+    "consolidation_avg_pass": 0,
+    "pullback_pass": 0,
+    "hold_pass": 0,
+    "liquidity_pass": 0,
+    "final": 0
+}
+
+
+# ============================================================
 # CONFIG
 # ============================================================
 
@@ -28,13 +60,16 @@ def load_config():
 
 def fetch_us_symbols():
 
-    # NASDAQ
     nasdaq_url = (
         "https://www.nasdaqtrader.com/dynamic/"
         "SymDir/nasdaqlisted.txt"
     )
 
-    r = requests.get(nasdaq_url, timeout=30)
+    r = requests.get(
+        nasdaq_url,
+        timeout=30
+    )
+
     r.raise_for_status()
 
     nasdaq = pd.read_csv(
@@ -47,15 +82,19 @@ def fetch_us_symbols():
     ]
 
     nasdaq = nasdaq[["Symbol"]].copy()
+
     nasdaq["exchange"] = "NASDAQ"
 
-    # NYSE / AMEX / others
     other_url = (
         "https://www.nasdaqtrader.com/dynamic/"
         "SymDir/otherlisted.txt"
     )
 
-    r = requests.get(other_url, timeout=30)
+    r = requests.get(
+        other_url,
+        timeout=30
+    )
+
     r.raise_for_status()
 
     other = pd.read_csv(
@@ -83,7 +122,7 @@ def fetch_us_symbols():
         "A": "AMEX",
         "P": "NYSE Arca",
         "Z": "BATS",
-        "V": "IEX",
+        "V": "IEX"
     }
 
     other["exchange"] = (
@@ -97,23 +136,32 @@ def fetch_us_symbols():
         ignore_index=True
     )
 
-    df = df.dropna(subset=["Symbol"])
+    df = df.dropna(
+        subset=["Symbol"]
+    )
 
-    # 排除特殊 ticker
     df = df[
         ~df["Symbol"]
         .astype(str)
-        .str.contains(r"[\^\$]", regex=True)
+        .str.contains(
+            r"[\^\$]",
+            regex=True
+        )
     ]
 
     df = df[
         ~df["Symbol"]
         .astype(str)
-        .str.contains(r"\.", regex=True)
+        .str.contains(
+            r"\.",
+            regex=True
+        )
     ]
 
     df = (
-        df.drop_duplicates(subset=["Symbol"])
+        df.drop_duplicates(
+            subset=["Symbol"]
+        )
         .reset_index(drop=True)
     )
 
@@ -124,7 +172,10 @@ def fetch_us_symbols():
 # HELPERS
 # ============================================================
 
-def safe_pct_return(current_price, past_price):
+def safe_pct_return(
+    current_price,
+    past_price
+):
 
     if (
         past_price is None
@@ -153,11 +204,13 @@ def get_price_at_or_before(
     if temp.empty:
         return None
 
-    return float(temp.iloc[-1])
+    return float(
+        temp.iloc[-1]
+    )
 
 
 # ============================================================
-# DOWNLOAD PRICE HISTORY
+# PRICE HISTORY
 # ============================================================
 
 def get_price_history(symbols):
@@ -179,7 +232,7 @@ def get_price_history(symbols):
 
 
 # ============================================================
-# SPY RETURNS
+# BENCHMARK
 # ============================================================
 
 def get_benchmark_returns(symbol):
@@ -194,7 +247,10 @@ def get_benchmark_returns(symbol):
         interval="1d"
     )
 
-    if hist is None or len(hist) == 0:
+    if (
+        hist is None
+        or len(hist) == 0
+    ):
         raise ValueError(
             f"Cannot fetch benchmark history for {symbol}"
         )
@@ -210,7 +266,9 @@ def get_benchmark_returns(symbol):
         .tz_convert(None)
     )
 
-    hist = hist.sort_values("date")
+    hist = hist.sort_values(
+        "date"
+    )
 
     closes = (
         hist
@@ -220,11 +278,14 @@ def get_benchmark_returns(symbol):
 
     if closes.empty:
         raise ValueError(
-            f"No close data for {symbol}"
+            f"No close data for benchmark {symbol}"
         )
 
     latest_date = closes.index.max()
-    latest_close = float(closes.iloc[-1])
+
+    latest_close = float(
+        closes.iloc[-1]
+    )
 
     price_5d = get_price_at_or_before(
         closes,
@@ -236,25 +297,40 @@ def get_benchmark_returns(symbol):
         latest_date - pd.Timedelta(days=30)
     )
 
+    return_5d = safe_pct_return(
+        latest_close,
+        price_5d
+    )
+
+    return_20d = safe_pct_return(
+        latest_close,
+        price_20d
+    )
+
+    if (
+        return_5d is None
+        or return_20d is None
+    ):
+        raise ValueError(
+            f"Cannot calculate benchmark returns for {symbol}"
+        )
+
     return {
         "latest_close": latest_close,
-
-        "five_day_return_pct":
-            safe_pct_return(
-                latest_close,
-                price_5d
-            ),
-
-        "twenty_day_return_pct":
-            safe_pct_return(
-                latest_close,
-                price_20d
-            )
+        "five_day_return_pct": return_5d,
+        "twenty_day_return_pct": return_20d
     }
 
 
 # ============================================================
-# MOMENTUM SCREENER
+# MOMENTUM
+#
+# 保持原本強勢股邏輯：
+#
+# Market Cap >= $10B
+# 5D outperformance vs SPY >= 3%
+# 20D outperformance vs SPY >= 8%
+# 距離52W High <= 2%
 # ============================================================
 
 def build_momentum_row(
@@ -266,15 +342,24 @@ def build_momentum_row(
     spy_20d
 ):
 
+    momentum_debug["checked"] += 1
+
     rules = config["momentum"]
 
-    market_cap = info.get("marketCap")
+    market_cap = info.get(
+        "marketCap"
+    )
 
     if (
         market_cap is None
-        or market_cap < rules["market_cap_min"]
+        or market_cap
+        < rules["market_cap_min"]
     ):
         return None
+
+    momentum_debug[
+        "market_cap_pass"
+    ] += 1
 
     df = (
         stock_hist
@@ -282,26 +367,58 @@ def build_momentum_row(
         .copy()
     )
 
+    required_columns = {
+        "date",
+        "close",
+        "high"
+    }
+
+    if not required_columns.issubset(
+        df.columns
+    ):
+        return None
+
+    df = df.dropna(
+        subset=[
+            "close",
+            "high"
+        ]
+    )
+
+    if len(df) < 260:
+        return None
+
+    momentum_debug[
+        "history_pass"
+    ] += 1
+
     closes = (
         df
         .set_index("date")["close"]
         .dropna()
     )
 
-    if len(closes) < 260:
+    if closes.empty:
         return None
 
-    latest_date = closes.index.max()
-    recent_close = float(closes.iloc[-1])
+    latest_date = (
+        closes.index.max()
+    )
+
+    recent_close = float(
+        closes.iloc[-1]
+    )
 
     price_5d = get_price_at_or_before(
         closes,
-        latest_date - pd.Timedelta(days=7)
+        latest_date
+        - pd.Timedelta(days=7)
     )
 
     price_20d = get_price_at_or_before(
         closes,
-        latest_date - pd.Timedelta(days=30)
+        latest_date
+        - pd.Timedelta(days=30)
     )
 
     return_5d = safe_pct_return(
@@ -320,13 +437,55 @@ def build_momentum_row(
     ):
         return None
 
-    rs_5d = return_5d - spy_5d
-    rs_20d = return_20d - spy_20d
+    momentum_debug[
+        "returns_pass"
+    ] += 1
 
-    trailing_52w = df.tail(252)
+    rs_5d = (
+        return_5d
+        - spy_5d
+    )
+
+    rs_20d = (
+        return_20d
+        - spy_20d
+    )
+
+    if (
+        rs_5d
+        < rules[
+            "rs_5d_vs_spy_min_pct"
+        ]
+    ):
+        return None
+
+    momentum_debug[
+        "rs_5d_pass"
+    ] += 1
+
+    if (
+        rs_20d
+        < rules[
+            "rs_20d_vs_spy_min_pct"
+        ]
+    ):
+        return None
+
+    momentum_debug[
+        "rs_20d_pass"
+    ] += 1
+
+    trailing_52w = (
+        df.tail(252)
+    )
+
+    if trailing_52w.empty:
+        return None
 
     high_52w = float(
-        trailing_52w["high"]
+        trailing_52w[
+            "high"
+        ]
         .dropna()
         .max()
     )
@@ -338,26 +497,29 @@ def build_momentum_row(
         return None
 
     dist_from_52w_high_pct = (
-        (recent_close / high_52w) - 1
+        (
+            recent_close
+            / high_52w
+        ) - 1
     ) * 100
 
     if (
-        rs_5d
-        < rules["rs_5d_vs_spy_min_pct"]
+        abs(
+            dist_from_52w_high_pct
+        )
+        > rules[
+            "max_dist_from_52w_high_pct"
+        ]
     ):
         return None
 
-    if (
-        rs_20d
-        < rules["rs_20d_vs_spy_min_pct"]
-    ):
-        return None
+    momentum_debug[
+        "high_52w_pass"
+    ] += 1
 
-    if (
-        abs(dist_from_52w_high_pct)
-        > rules["max_dist_from_52w_high_pct"]
-    ):
-        return None
+    momentum_debug[
+        "final"
+    ] += 1
 
     return {
         "symbol": symbol,
@@ -372,39 +534,67 @@ def build_momentum_row(
             or info.get("fullExchangeName")
             or "",
 
-        "market_cap": market_cap,
+        "market_cap":
+            market_cap,
 
         "recent_close":
-            round(recent_close, 2),
+            round(
+                recent_close,
+                2
+            ),
 
         "five_day_return_pct":
-            round(return_5d, 1),
+            round(
+                return_5d,
+                1
+            ),
 
         "twenty_day_return_pct":
-            round(return_20d, 1),
+            round(
+                return_20d,
+                1
+            ),
 
         "spy_five_day_return_pct":
-            round(spy_5d, 1),
+            round(
+                spy_5d,
+                1
+            ),
 
         "spy_twenty_day_return_pct":
-            round(spy_20d, 1),
+            round(
+                spy_20d,
+                1
+            ),
 
         "rs_5d_vs_spy_pct":
-            round(rs_5d, 1),
+            round(
+                rs_5d,
+                1
+            ),
 
         "rs_20d_vs_spy_pct":
-            round(rs_20d, 1),
+            round(
+                rs_20d,
+                1
+            ),
 
         "high_52w":
-            round(high_52w, 2),
+            round(
+                high_52w,
+                2
+            ),
 
         "dist_from_52w_high_pct":
-            round(dist_from_52w_high_pct, 1)
+            round(
+                dist_from_52w_high_pct,
+                1
+            )
     }
 
 
 # ============================================================
-# BREAKOUT + HIGH CONSOLIDATION SCREENER
+# BREAKOUT / HIGH BASE
 # ============================================================
 
 def build_breakout_row(
@@ -414,24 +604,36 @@ def build_breakout_row(
     config
 ):
 
-    rules = config["breakout_setup"]
+    breakout_debug[
+        "checked"
+    ] += 1
+
+    rules = config[
+        "breakout_setup"
+    ]
 
     # ========================================================
-    # 1. MARKET CAP
+    # MARKET CAP
     # ========================================================
 
-    market_cap = info.get("marketCap")
+    market_cap = info.get(
+        "marketCap"
+    )
 
     if (
         market_cap is None
-        or market_cap < rules["market_cap_min"]
+        or market_cap
+        < rules["market_cap_min"]
     ):
         return None
+
+    breakout_debug[
+        "market_cap_pass"
+    ] += 1
 
     required_columns = {
         "date",
         "close",
-        "high",
         "volume"
     }
 
@@ -462,7 +664,7 @@ def build_breakout_row(
         return None
 
     # ========================================================
-    # LOAD RULES
+    # RULES
     # ========================================================
 
     exclude_days = int(
@@ -489,14 +691,14 @@ def build_breakout_row(
     latest_close_max_pct = float(
         rules.get(
             "latest_close_max_pct",
-            8
+            10
         )
     )
 
-    recent_window_max_extension_pct = float(
+    max_recent_extension_pct = float(
         rules.get(
             "recent_window_max_extension_pct",
-            10
+            12
         )
     )
 
@@ -510,14 +712,14 @@ def build_breakout_row(
     consolidation_range_max_pct = float(
         rules.get(
             "consolidation_range_max_pct",
-            10
+            12
         )
     )
 
-    consolidation_avg_close_min_pct = float(
+    consolidation_avg_min_pct = float(
         rules.get(
             "consolidation_avg_close_min_pct",
-            0
+            -1
         )
     )
 
@@ -531,14 +733,14 @@ def build_breakout_row(
     hold_required_days = int(
         rules.get(
             "hold_required_days",
-            8
+            7
         )
     )
 
-    max_pullback_from_peak_pct = float(
+    max_pullback_pct = float(
         rules.get(
             "max_pullback_from_peak_pct",
-            8
+            10
         )
     )
 
@@ -575,12 +777,16 @@ def build_breakout_row(
     if len(df) < min_history:
         return None
 
+    breakout_debug[
+        "history_pass"
+    ] += 1
+
     recent_close = float(
         df.iloc[-1]["close"]
     )
 
     # ========================================================
-    # 2. MA200
+    # MA200
     # ========================================================
 
     ma200 = float(
@@ -592,31 +798,46 @@ def build_breakout_row(
     if recent_close <= ma200:
         return None
 
+    breakout_debug[
+        "ma200_pass"
+    ] += 1
+
     # ========================================================
-    # 3. OLD 3-YEAR HIGH
+    # OLD HIGH
     #
-    # 過去3年最高收市價
-    # 排除最近60個交易日
+    # 排除最近60個交易日後，
+    # 歷史最高 Close
     # ========================================================
 
     if exclude_days > 0:
+
         old_window = (
-            df.iloc[:-exclude_days]
+            df.iloc[
+                :-exclude_days
+            ]
             .copy()
         )
+
     else:
-        old_window = df.copy()
+
+        old_window = (
+            df.copy()
+        )
 
     old_window = (
         old_window
-        .dropna(subset=["close"])
+        .dropna(
+            subset=["close"]
+        )
     )
 
     if old_window.empty:
         return None
 
     old_high_idx = (
-        old_window["close"]
+        old_window[
+            "close"
+        ]
         .idxmax()
     )
 
@@ -627,6 +848,12 @@ def build_breakout_row(
         ]
     )
 
+    if (
+        pd.isna(old_high)
+        or old_high <= 0
+    ):
+        return None
+
     old_high_date = (
         pd.Timestamp(
             old_window.loc[
@@ -634,40 +861,45 @@ def build_breakout_row(
                 "date"
             ]
         )
-        .strftime("%Y-%m-%d")
+        .strftime(
+            "%Y-%m-%d"
+        )
     )
 
-    if (
-        pd.isna(old_high)
-        or old_high <= 0
-    ):
-        return None
-
     # ========================================================
-    # 4. LATEST PRICE DISTANCE
+    # LATEST CLOSE
     #
-    # 最新收市：
-    # 舊頂 0% ～ +8%
+    # 0% ～ +10%
     # ========================================================
 
     distance_pct = (
-        (recent_close / old_high) - 1
+        (
+            recent_close
+            / old_high
+        ) - 1
     ) * 100
 
-    if distance_pct < latest_close_min_pct:
+    if (
+        distance_pct
+        < latest_close_min_pct
+    ):
         return None
 
-    if distance_pct > latest_close_max_pct:
+    if (
+        distance_pct
+        > latest_close_max_pct
+    ):
         return None
 
+    breakout_debug[
+        "latest_distance_pass"
+    ] += 1
+
     # ========================================================
-    # 5. RECENT 60-DAY BREAKOUT
-    #
-    # 最近60日至少一次：
-    # Close > 舊頂
+    # 60-DAY BREAKOUT
     # ========================================================
 
-    recent_breakout_window = (
+    recent_window = (
         df.tail(
             breakout_window_days
         )
@@ -675,9 +907,10 @@ def build_breakout_row(
     )
 
     breakout_rows = (
-        recent_breakout_window[
-            recent_breakout_window["close"]
-            > old_high
+        recent_window[
+            recent_window[
+                "close"
+            ] > old_high
         ]
         .copy()
     )
@@ -685,71 +918,91 @@ def build_breakout_row(
     if breakout_rows.empty:
         return None
 
-    first_breakout = breakout_rows.iloc[0]
+    breakout_debug[
+        "breakout_pass"
+    ] += 1
 
-    first_breakout_date_ts = pd.Timestamp(
-        first_breakout["date"]
+    first_breakout = (
+        breakout_rows.iloc[0]
+    )
+
+    first_breakout_date_ts = (
+        pd.Timestamp(
+            first_breakout[
+                "date"
+            ]
+        )
     )
 
     first_breakout_date = (
         first_breakout_date_ts
-        .strftime("%Y-%m-%d")
+        .strftime(
+            "%Y-%m-%d"
+        )
     )
 
     first_breakout_close = float(
-        first_breakout["close"]
+        first_breakout[
+            "close"
+        ]
     )
 
     # ========================================================
-    # 6. RECENT 60-DAY MAX EXTENSION
+    # RECENT 60-DAY EXTENSION
     #
-    # 最近60日最高收市：
-    # 不可以高過舊頂 +10%
+    # 最高 Close <= 舊頂 +12%
     # ========================================================
 
-    recent_window_peak_close = float(
-        recent_breakout_window["close"]
-        .max()
+    recent_peak_close = float(
+        recent_window[
+            "close"
+        ].max()
     )
 
-    recent_window_peak_idx = (
-        recent_breakout_window["close"]
-        .idxmax()
+    recent_peak_idx = (
+        recent_window[
+            "close"
+        ].idxmax()
     )
 
-    recent_window_peak_date = (
+    recent_peak_date = (
         pd.Timestamp(
-            recent_breakout_window.loc[
-                recent_window_peak_idx,
+            recent_window.loc[
+                recent_peak_idx,
                 "date"
             ]
         )
-        .strftime("%Y-%m-%d")
+        .strftime(
+            "%Y-%m-%d"
+        )
     )
 
-    recent_window_extension_pct = (
+    recent_extension_pct = (
         (
-            recent_window_peak_close
+            recent_peak_close
             / old_high
         ) - 1
     ) * 100
 
     if (
-        recent_window_extension_pct
-        > recent_window_max_extension_pct
+        recent_extension_pct
+        > max_recent_extension_pct
     ):
         return None
 
+    breakout_debug[
+        "extension_pass"
+    ] += 1
+
     # ========================================================
-    # 7. 20-DAY HIGH CONSOLIDATION
-    #
-    # 目的：
-    # 真正搵「高位橫行整固」
+    # 20-DAY CONSOLIDATION RANGE
     #
     # 最近20日：
-    # (最高 Close - 最低 Close)
-    # / 最低 Close
-    # <= 10%
+    #
+    # (最高Close - 最低Close)
+    # / 最低Close
+    #
+    # <= 12%
     # ========================================================
 
     consolidation = (
@@ -759,30 +1012,39 @@ def build_breakout_row(
         .copy()
     )
 
-    if len(consolidation) < consolidation_days:
+    if (
+        len(consolidation)
+        < consolidation_days
+    ):
         return None
 
-    consolidation_high_close = float(
-        consolidation["close"].max()
+    consolidation_high = float(
+        consolidation[
+            "close"
+        ].max()
     )
 
-    consolidation_low_close = float(
-        consolidation["close"].min()
+    consolidation_low = float(
+        consolidation[
+            "close"
+        ].min()
     )
 
-    consolidation_avg_close = float(
-        consolidation["close"].mean()
+    consolidation_avg = float(
+        consolidation[
+            "close"
+        ].mean()
     )
 
-    if consolidation_low_close <= 0:
+    if consolidation_low <= 0:
         return None
 
     consolidation_range_pct = (
         (
-            consolidation_high_close
-            - consolidation_low_close
+            consolidation_high
+            - consolidation_low
         )
-        / consolidation_low_close
+        / consolidation_low
     ) * 100
 
     if (
@@ -791,28 +1053,35 @@ def build_breakout_row(
     ):
         return None
 
+    breakout_debug[
+        "consolidation_range_pass"
+    ] += 1
+
     # ========================================================
-    # 8. 20-DAY AVERAGE CLOSE
+    # 20-DAY AVERAGE CLOSE
     #
-    # 最近20日平均 Close
-    # 必須 >= 舊頂
+    # 平均 Close 最多可以比舊頂低1%
     # ========================================================
 
     consolidation_avg_vs_old_high_pct = (
         (
-            consolidation_avg_close
+            consolidation_avg
             / old_high
         ) - 1
     ) * 100
 
     if (
         consolidation_avg_vs_old_high_pct
-        < consolidation_avg_close_min_pct
+        < consolidation_avg_min_pct
     ):
         return None
 
+    breakout_debug[
+        "consolidation_avg_pass"
+    ] += 1
+
     # ========================================================
-    # 9. POST-BREAKOUT PEAK
+    # POST BREAKOUT PEAK
     # ========================================================
 
     post_breakout = (
@@ -826,58 +1095,64 @@ def build_breakout_row(
     if post_breakout.empty:
         return None
 
-    post_breakout_peak_close = float(
-        post_breakout["close"]
-        .max()
+    post_peak_close = float(
+        post_breakout[
+            "close"
+        ].max()
     )
 
-    post_breakout_peak_idx = (
-        post_breakout["close"]
-        .idxmax()
+    post_peak_idx = (
+        post_breakout[
+            "close"
+        ].idxmax()
     )
 
-    post_breakout_peak_date = (
+    post_peak_date = (
         pd.Timestamp(
             post_breakout.loc[
-                post_breakout_peak_idx,
+                post_peak_idx,
                 "date"
             ]
         )
-        .strftime("%Y-%m-%d")
+        .strftime(
+            "%Y-%m-%d"
+        )
     )
 
     max_extension_pct = (
         (
-            post_breakout_peak_close
+            post_peak_close
             / old_high
         ) - 1
     ) * 100
 
     # ========================================================
-    # 10. PULLBACK FROM PEAK
+    # PULLBACK
     #
-    # 由突破後最高收市
-    # 回撤不可以超過8%
+    # 由突破後最高Close回撤 <= 10%
     # ========================================================
 
-    pullback_from_peak_pct = (
+    pullback_pct = (
         (
             recent_close
-            / post_breakout_peak_close
+            / post_peak_close
         ) - 1
     ) * 100
 
     if (
-        pullback_from_peak_pct
-        < -max_pullback_from_peak_pct
+        pullback_pct
+        < -max_pullback_pct
     ):
         return None
 
+    breakout_debug[
+        "pullback_pass"
+    ] += 1
+
     # ========================================================
-    # 11. HOLD ABOVE OLD HIGH
+    # HOLD
     #
-    # 最近10日
-    # 至少8日 Close >= 舊頂
+    # 最近10日最少7日 >= 舊頂
     # ========================================================
 
     recent_hold = (
@@ -889,18 +1164,24 @@ def build_breakout_row(
 
     hold_days_met = int(
         (
-            recent_hold["close"]
-            >= old_high
+            recent_hold[
+                "close"
+            ] >= old_high
         ).sum()
     )
 
-    if hold_days_met < hold_required_days:
+    if (
+        hold_days_met
+        < hold_required_days
+    ):
         return None
 
+    breakout_debug[
+        "hold_pass"
+    ] += 1
+
     # ========================================================
-    # 12. LIQUIDITY
-    #
-    # 最近10日平均成交額 > $20M
+    # LIQUIDITY
     # ========================================================
 
     recent_dv = (
@@ -910,14 +1191,21 @@ def build_breakout_row(
         .copy()
     )
 
-    recent_dv["dollar_volume"] = (
-        recent_dv["close"]
-        * recent_dv["volume"]
+    recent_dv[
+        "dollar_volume"
+    ] = (
+        recent_dv[
+            "close"
+        ]
+        * recent_dv[
+            "volume"
+        ]
     )
 
     avg_dollar_volume = float(
-        recent_dv["dollar_volume"]
-        .mean()
+        recent_dv[
+            "dollar_volume"
+        ].mean()
     )
 
     if (
@@ -926,12 +1214,21 @@ def build_breakout_row(
     ):
         return None
 
+    breakout_debug[
+        "liquidity_pass"
+    ] += 1
+
+    breakout_debug[
+        "final"
+    ] += 1
+
     # ========================================================
     # OUTPUT
     # ========================================================
 
     return {
-        "symbol": symbol,
+        "symbol":
+            symbol,
 
         "company":
             info.get("shortName")
@@ -940,26 +1237,40 @@ def build_breakout_row(
 
         "exchange":
             info.get("exchangeName")
-            or info.get("fullExchangeName")
+            or info.get(
+                "fullExchangeName"
+            )
             or "",
 
         "market_cap":
             market_cap,
 
         "recent_close":
-            round(recent_close, 2),
+            round(
+                recent_close,
+                2
+            ),
 
         "ma200":
-            round(ma200, 2),
+            round(
+                ma200,
+                2
+            ),
 
         "old_3y_high":
-            round(old_high, 2),
+            round(
+                old_high,
+                2
+            ),
 
         "old_3y_high_date":
             old_high_date,
 
         "dist_from_old_high_pct":
-            round(distance_pct, 1),
+            round(
+                distance_pct,
+                1
+            ),
 
         "first_breakout_date":
             first_breakout_date,
@@ -972,16 +1283,16 @@ def build_breakout_row(
 
         "recent_window_peak_close":
             round(
-                recent_window_peak_close,
+                recent_peak_close,
                 2
             ),
 
         "recent_window_peak_date":
-            recent_window_peak_date,
+            recent_peak_date,
 
         "recent_window_max_extension_pct":
             round(
-                recent_window_extension_pct,
+                recent_extension_pct,
                 1
             ),
 
@@ -990,13 +1301,13 @@ def build_breakout_row(
 
         "consolidation_high_close":
             round(
-                consolidation_high_close,
+                consolidation_high,
                 2
             ),
 
         "consolidation_low_close":
             round(
-                consolidation_low_close,
+                consolidation_low,
                 2
             ),
 
@@ -1008,7 +1319,7 @@ def build_breakout_row(
 
         "consolidation_avg_close":
             round(
-                consolidation_avg_close,
+                consolidation_avg,
                 2
             ),
 
@@ -1020,12 +1331,12 @@ def build_breakout_row(
 
         "post_breakout_peak_close":
             round(
-                post_breakout_peak_close,
+                post_peak_close,
                 2
             ),
 
         "post_breakout_peak_date":
-            post_breakout_peak_date,
+            post_peak_date,
 
         "max_extension_pct":
             round(
@@ -1035,7 +1346,7 @@ def build_breakout_row(
 
         "pullback_from_peak_pct":
             round(
-                pullback_from_peak_pct,
+                pullback_pct,
                 1
             ),
 
@@ -1060,7 +1371,134 @@ def build_breakout_row(
 
 
 # ============================================================
-# BUILD ALL RESULTS
+# PRINT DEBUG
+# ============================================================
+
+def print_debug_report():
+
+    print("\n")
+    print("=" * 60)
+    print("SCREENING DEBUG REPORT")
+    print("=" * 60)
+
+    print("\nMOMENTUM / 強勢股")
+    print("-" * 60)
+
+    print(
+        f"Stocks checked:          "
+        f"{momentum_debug['checked']}"
+    )
+
+    print(
+        f"Market cap passed:       "
+        f"{momentum_debug['market_cap_pass']}"
+    )
+
+    print(
+        f"History passed:          "
+        f"{momentum_debug['history_pass']}"
+    )
+
+    print(
+        f"Returns calculated:      "
+        f"{momentum_debug['returns_pass']}"
+    )
+
+    print(
+        f"5D RS passed:            "
+        f"{momentum_debug['rs_5d_pass']}"
+    )
+
+    print(
+        f"20D RS passed:           "
+        f"{momentum_debug['rs_20d_pass']}"
+    )
+
+    print(
+        f"52W high passed:         "
+        f"{momentum_debug['high_52w_pass']}"
+    )
+
+    print(
+        f"FINAL MOMENTUM:          "
+        f"{momentum_debug['final']}"
+    )
+
+    print("\n")
+    print("BREAKOUT / 高位整固")
+    print("-" * 60)
+
+    print(
+        f"Stocks checked:          "
+        f"{breakout_debug['checked']}"
+    )
+
+    print(
+        f"Market cap passed:       "
+        f"{breakout_debug['market_cap_pass']}"
+    )
+
+    print(
+        f"History passed:          "
+        f"{breakout_debug['history_pass']}"
+    )
+
+    print(
+        f"Above MA200:             "
+        f"{breakout_debug['ma200_pass']}"
+    )
+
+    print(
+        f"Near old high:           "
+        f"{breakout_debug['latest_distance_pass']}"
+    )
+
+    print(
+        f"60D breakout:            "
+        f"{breakout_debug['breakout_pass']}"
+    )
+
+    print(
+        f"60D extension passed:    "
+        f"{breakout_debug['extension_pass']}"
+    )
+
+    print(
+        f"20D range passed:        "
+        f"{breakout_debug['consolidation_range_pass']}"
+    )
+
+    print(
+        f"20D average passed:      "
+        f"{breakout_debug['consolidation_avg_pass']}"
+    )
+
+    print(
+        f"Pullback passed:         "
+        f"{breakout_debug['pullback_pass']}"
+    )
+
+    print(
+        f"Hold passed:             "
+        f"{breakout_debug['hold_pass']}"
+    )
+
+    print(
+        f"Liquidity passed:        "
+        f"{breakout_debug['liquidity_pass']}"
+    )
+
+    print(
+        f"FINAL BREAKOUT:          "
+        f"{breakout_debug['final']}"
+    )
+
+    print("=" * 60)
+    print("\n")
+
+
+# ============================================================
+# BUILD RESULTS
 # ============================================================
 
 def build_results():
@@ -1071,11 +1509,8 @@ def build_results():
         config["benchmark_symbol"]
     )
 
-    symbols_df = fetch_us_symbols()
-
-    symbols = (
-        symbols_df["Symbol"]
-        .tolist()
+    print(
+        f"Loading {benchmark_symbol} benchmark..."
     )
 
     benchmark = get_benchmark_returns(
@@ -1094,21 +1529,45 @@ def build_results():
         ]
     )
 
-    if (
-        spy_5d is None
-        or spy_20d is None
-    ):
-        raise ValueError(
-            "Cannot calculate SPY returns"
-        )
+    print(
+        f"SPY 5D return: "
+        f"{spy_5d:.2f}%"
+    )
+
+    print(
+        f"SPY 20D return: "
+        f"{spy_20d:.2f}%"
+    )
+
+    print(
+        "\nLoading US stock symbols..."
+    )
+
+    symbols_df = (
+        fetch_us_symbols()
+    )
+
+    symbols = (
+        symbols_df[
+            "Symbol"
+        ].tolist()
+    )
+
+    print(
+        f"Total symbols: "
+        f"{len(symbols)}"
+    )
 
     batch_size = 80
 
     momentum_rows = []
     breakout_rows = []
 
+    failed_batches = 0
+    failed_symbols = 0
+
     # ========================================================
-    # PROCESS ALL SYMBOLS
+    # PROCESS BATCHES
     # ========================================================
 
     for i in range(
@@ -1122,7 +1581,7 @@ def build_results():
         ]
 
         print(
-            f"Processing "
+            f"\nProcessing "
             f"{i + 1}-"
             f"{min(i + batch_size, len(symbols))} "
             f"of {len(symbols)}"
@@ -1138,43 +1597,97 @@ def build_results():
 
         except Exception as e:
 
+            failed_batches += 1
+
             print(
-                f"Batch failed: {e}"
+                f"ERROR downloading batch: "
+                f"{e}"
             )
 
             time.sleep(1)
+
             continue
 
         if not hasattr(
             history,
             "reset_index"
         ):
+
+            failed_batches += 1
+
+            print(
+                "ERROR: history has no reset_index"
+            )
+
             continue
 
         try:
+
             history_df = (
                 history.reset_index()
             )
-        except Exception:
+
+        except Exception as e:
+
+            failed_batches += 1
+
+            print(
+                f"ERROR converting history: "
+                f"{e}"
+            )
+
+            continue
+
+        if history_df.empty:
+
+            failed_batches += 1
+
+            print(
+                "ERROR: empty history dataframe"
+            )
+
             continue
 
         if (
-            history_df.empty
-            or "date"
+            "date"
             not in history_df.columns
             or "symbol"
             not in history_df.columns
         ):
+
+            failed_batches += 1
+
+            print(
+                "ERROR: history missing date/symbol columns"
+            )
+
             continue
 
-        history_df["date"] = (
-            pd.to_datetime(
-                history_df["date"],
-                utc=True
+        try:
+
+            history_df[
+                "date"
+            ] = (
+                pd.to_datetime(
+                    history_df[
+                        "date"
+                    ],
+                    utc=True
+                )
+                .dt
+                .tz_convert(None)
             )
-            .dt
-            .tz_convert(None)
-        )
+
+        except Exception as e:
+
+            failed_batches += 1
+
+            print(
+                f"ERROR converting dates: "
+                f"{e}"
+            )
+
+            continue
 
         history_df = (
             history_df
@@ -1187,7 +1700,7 @@ def build_results():
         )
 
         # ====================================================
-        # EACH STOCK
+        # EACH SYMBOL
         # ====================================================
 
         for symbol in batch:
@@ -1203,20 +1716,35 @@ def build_results():
                     info,
                     dict
                 ):
+
+                    failed_symbols += 1
+
+                    print(
+                        f"{symbol}: "
+                        f"invalid price info"
+                    )
+
                     continue
 
                 stock_hist = (
                     history_df[
-                        history_df["symbol"]
-                        == symbol
+                        history_df[
+                            "symbol"
+                        ] == symbol
                     ]
                     .copy()
                 )
 
                 if stock_hist.empty:
+
+                    failed_symbols += 1
+
                     continue
 
+                # ============================================
                 # MOMENTUM
+                # ============================================
+
                 momentum_row = (
                     build_momentum_row(
                         symbol,
@@ -1229,11 +1757,15 @@ def build_results():
                 )
 
                 if momentum_row:
+
                     momentum_rows.append(
                         momentum_row
                     )
 
-                # BREAKOUT / CONSOLIDATION
+                # ============================================
+                # BREAKOUT
+                # ============================================
+
                 breakout_row = (
                     build_breakout_row(
                         symbol,
@@ -1244,14 +1776,19 @@ def build_results():
                 )
 
                 if breakout_row:
+
                     breakout_rows.append(
                         breakout_row
                     )
 
             except Exception as e:
 
+                failed_symbols += 1
+
                 print(
-                    f"{symbol} error: {e}"
+                    f"{symbol} ERROR: "
+                    f"{type(e).__name__}: "
+                    f"{e}"
                 )
 
                 continue
@@ -1263,21 +1800,16 @@ def build_results():
     momentum_rows = sorted(
         momentum_rows,
         key=lambda x:
-            x["rs_20d_vs_spy_pct"],
+            x[
+                "rs_20d_vs_spy_pct"
+            ],
         reverse=True
     )
 
     # ========================================================
-    # SORT HIGH CONSOLIDATION
+    # SORT BREAKOUT
     #
-    # 優先：
-    #
-    # 1. 20日波幅越細越好
-    # 2. 越接近舊頂越好
-    # 3. 守住舊頂日數越多越好
-    #
-    # 呢個排序比之前更加符合
-    # 「高位整固」概念。
+    # 20D range 越細排越前
     # ========================================================
 
     breakout_rows = sorted(
@@ -1297,14 +1829,8 @@ def build_results():
         )
     )
 
-    breakout_rules = (
-        config[
-            "breakout_setup"
-        ]
-    )
-
     # ========================================================
-    # OUTPUT JSON
+    # RESULTS
     # ========================================================
 
     output = {
@@ -1322,27 +1848,34 @@ def build_results():
         "rules": {
 
             "momentum": {
-
-                **config["momentum"],
+                **config[
+                    "momentum"
+                ],
 
                 "spy_five_day_return_pct":
-                    round(spy_5d, 1),
+                    round(
+                        spy_5d,
+                        1
+                    ),
 
                 "spy_twenty_day_return_pct":
-                    round(spy_20d, 1)
+                    round(
+                        spy_20d,
+                        1
+                    )
             },
 
             "breakout_setup": {
-
-                **breakout_rules,
+                **config[
+                    "breakout_setup"
+                ],
 
                 "old_high_price_source":
                     "close"
             }
         },
 
-        # 保留舊 key，
-        # 避免前端因為改名而出問題
+        # 舊 frontend compatibility
         "results":
             momentum_rows,
 
@@ -1350,7 +1883,23 @@ def build_results():
             momentum_rows,
 
         "breakout_results":
-            breakout_rows
+            breakout_rows,
+
+        # Debug data 亦寫入 JSON
+        "debug": {
+
+            "momentum":
+                momentum_debug,
+
+            "breakout":
+                breakout_debug,
+
+            "failed_batches":
+                failed_batches,
+
+            "failed_symbols":
+                failed_symbols
+        }
     }
 
     with open(
@@ -1366,18 +1915,35 @@ def build_results():
             indent=2
         )
 
+    # ========================================================
+    # DEBUG REPORT
+    # ========================================================
+
+    print_debug_report()
+
     print(
-        f"Momentum results: "
+        f"Failed batches: "
+        f"{failed_batches}"
+    )
+
+    print(
+        f"Failed symbols: "
+        f"{failed_symbols}"
+    )
+
+    print(
+        f"\nMomentum results: "
         f"{len(momentum_rows)}"
     )
 
     print(
-        f"Breakout / consolidation results: "
+        f"Breakout results: "
         f"{len(breakout_rows)}"
     )
 
     print(
-        f"Saved to: {RESULTS_PATH}"
+        f"\nSaved to: "
+        f"{RESULTS_PATH}"
     )
 
 
