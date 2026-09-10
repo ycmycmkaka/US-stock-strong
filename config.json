@@ -12,12 +12,13 @@
     "market_cap_min": 5000000000,
 
     "old_high_lookback_years": 3,
-    "exclude_recent_trading_days": 30,
+    "exclude_recent_trading_days": 60,
 
     "latest_close_min_pct": 0,
-    "latest_close_max_pct": 5,
+    "latest_close_max_pct": 15,
 
-    "breakout_window_days": 30,
+    "breakout_window_days": 60,
+    "recent_window_max_extension_pct": 15,
 
     "hold_days": 10,
     "hold_required_days": 8,
