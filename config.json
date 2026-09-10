@@ -15,19 +15,19 @@
     "exclude_recent_trading_days": 60,
 
     "latest_close_min_pct": 0,
-    "latest_close_max_pct": 8,
+    "latest_close_max_pct": 10,
 
     "breakout_window_days": 60,
-    "recent_window_max_extension_pct": 10,
+    "recent_window_max_extension_pct": 12,
 
     "consolidation_days": 20,
-    "consolidation_range_max_pct": 10,
-    "consolidation_avg_close_min_pct": 0,
+    "consolidation_range_max_pct": 12,
+    "consolidation_avg_close_min_pct": -1,
 
     "hold_days": 10,
-    "hold_required_days": 8,
+    "hold_required_days": 7,
 
-    "max_pullback_from_peak_pct": 8,
+    "max_pullback_from_peak_pct": 10,
 
     "ma_days": 200,
 
