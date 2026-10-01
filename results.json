@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30 00:03 UTC",
+  "generated_at": "2026-10-01 00:18 UTC",
   "benchmark_symbol": "SPY",
   "rules": {
     "momentum": {
@@ -35,7 +35,7 @@
       "symbol": "CRWD",
       "company": "CrowdStrike Holdings, Inc.",
       "exchange": "NasdaqGS",
-      "market_cap": 269028638720,
+      "market_cap": 271086747648,
       "recent_close": 262.74,
       "five_day_return_pct": 5.1,
       "twenty_day_return_pct": 20.3,
@@ -43,8 +43,8 @@
       "spy_twenty_day_return_pct": -0.7,
       "rs_5d_vs_spy_pct": 6.3,
       "rs_20d_vs_spy_pct": 21.0,
-      "high_52w": 263.87,
-      "dist_from_52w_high_pct": -0.4
+      "high_52w": 267.69,
+      "dist_from_52w_high_pct": -1.8
     }
   ],
   "momentum_results": [
@@ -52,7 +52,7 @@
       "symbol": "CRWD",
       "company": "CrowdStrike Holdings, Inc.",
       "exchange": "NasdaqGS",
-      "market_cap": 269028638720,
+      "market_cap": 271086747648,
       "recent_close": 262.74,
       "five_day_return_pct": 5.1,
       "twenty_day_return_pct": 20.3,
@@ -60,8 +60,8 @@
       "spy_twenty_day_return_pct": -0.7,
       "rs_5d_vs_spy_pct": 6.3,
       "rs_20d_vs_spy_pct": 21.0,
-      "high_52w": 263.87,
-      "dist_from_52w_high_pct": -0.4
+      "high_52w": 267.69,
+      "dist_from_52w_high_pct": -1.8
     }
   ],
   "breakout_results": [
@@ -69,7 +69,7 @@
       "symbol": "AAPL",
       "company": "Apple Inc.",
       "exchange": "NasdaqGS",
-      "market_cap": 4807323025408,
+      "market_cap": 4860153954304,
       "recent_close": 329.4,
       "ma200": 288.33,
       "old_3y_high": 315.2,
@@ -92,26 +92,26 @@
       "pullback_from_peak_pct": -3.4,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 13188940186.0,
+      "avg_dollar_volume_10d": 13212132317.0,
       "breakout_pct": 4.5
     }
   ],
   "debug": {
     "momentum": {
-      "checked": 1520,
-      "market_cap_pass": 76,
-      "history_pass": 73,
-      "returns_pass": 73,
+      "checked": 1600,
+      "market_cap_pass": 78,
+      "history_pass": 75,
+      "returns_pass": 75,
       "rs_5d_pass": 11,
       "rs_20d_pass": 5,
       "high_52w_pass": 1,
       "final": 1
     },
     "breakout": {
-      "checked": 1520,
-      "market_cap_pass": 134,
-      "history_pass": 131,
-      "ma200_pass": 62,
+      "checked": 1600,
+      "market_cap_pass": 136,
+      "history_pass": 133,
+      "ma200_pass": 63,
       "latest_distance_pass": 6,
       "breakout_pass": 6,
       "extension_pass": 4,
@@ -123,6 +123,6 @@
       "final": 1
     },
     "failed_batches": 0,
-    "failed_symbols": 11212
+    "failed_symbols": 11138
   }
 }
