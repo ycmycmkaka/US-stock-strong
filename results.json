@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01 00:18 UTC",
+  "generated_at": "2026-10-02 00:22 UTC",
   "benchmark_symbol": "SPY",
   "rules": {
     "momentum": {
@@ -7,8 +7,8 @@
       "rs_5d_vs_spy_min_pct": 3,
       "rs_20d_vs_spy_min_pct": 8,
       "max_dist_from_52w_high_pct": 2,
-      "spy_five_day_return_pct": -1.2,
-      "spy_twenty_day_return_pct": -0.7
+      "spy_five_day_return_pct": -0.7,
+      "spy_twenty_day_return_pct": -0.6
     },
     "breakout_setup": {
       "market_cap_min": 5000000000,
@@ -30,51 +30,49 @@
       "old_high_price_source": "close"
     }
   },
-  "results": [
-    {
-      "symbol": "CRWD",
-      "company": "CrowdStrike Holdings, Inc.",
-      "exchange": "NasdaqGS",
-      "market_cap": 271086747648,
-      "recent_close": 262.74,
-      "five_day_return_pct": 5.1,
-      "twenty_day_return_pct": 20.3,
-      "spy_five_day_return_pct": -1.2,
-      "spy_twenty_day_return_pct": -0.7,
-      "rs_5d_vs_spy_pct": 6.3,
-      "rs_20d_vs_spy_pct": 21.0,
-      "high_52w": 267.69,
-      "dist_from_52w_high_pct": -1.8
-    }
-  ],
-  "momentum_results": [
-    {
-      "symbol": "CRWD",
-      "company": "CrowdStrike Holdings, Inc.",
-      "exchange": "NasdaqGS",
-      "market_cap": 271086747648,
-      "recent_close": 262.74,
-      "five_day_return_pct": 5.1,
-      "twenty_day_return_pct": 20.3,
-      "spy_five_day_return_pct": -1.2,
-      "spy_twenty_day_return_pct": -0.7,
-      "rs_5d_vs_spy_pct": 6.3,
-      "rs_20d_vs_spy_pct": 21.0,
-      "high_52w": 267.69,
-      "dist_from_52w_high_pct": -1.8
-    }
-  ],
+  "results": [],
+  "momentum_results": [],
   "breakout_results": [
+    {
+      "symbol": "CORT",
+      "company": "Corcept Therapeutics Incorporat",
+      "exchange": "NasdaqCM",
+      "market_cap": 12325919744,
+      "recent_close": 115.23,
+      "ma200": 69.65,
+      "old_3y_high": 114.22,
+      "old_3y_high_date": "2025-03-31",
+      "dist_from_old_high_pct": 0.9,
+      "first_breakout_date": "2026-07-30",
+      "first_breakout_close": 118.32,
+      "recent_window_peak_close": 123.57,
+      "recent_window_peak_date": "2026-08-25",
+      "recent_window_max_extension_pct": 8.2,
+      "consolidation_days": 20,
+      "consolidation_high_close": 118.51,
+      "consolidation_low_close": 110.29,
+      "consolidation_range_pct": 7.5,
+      "consolidation_avg_close": 113.81,
+      "consolidation_avg_vs_old_high_pct": -0.4,
+      "post_breakout_peak_close": 123.57,
+      "post_breakout_peak_date": "2026-08-25",
+      "max_extension_pct": 8.2,
+      "pullback_from_peak_pct": -6.7,
+      "hold_days_met": 7,
+      "hold_days_total": 10,
+      "avg_dollar_volume_10d": 289998739.0,
+      "breakout_pct": 0.9
+    },
     {
       "symbol": "AAPL",
       "company": "Apple Inc.",
       "exchange": "NasdaqGS",
-      "market_cap": 4860153954304,
-      "recent_close": 329.4,
-      "ma200": 288.33,
+      "market_cap": 4820749516800,
+      "recent_close": 333.02,
+      "ma200": 288.6,
       "old_3y_high": 315.2,
       "old_3y_high_date": "2026-06-02",
-      "dist_from_old_high_pct": 4.5,
+      "dist_from_old_high_pct": 5.7,
       "first_breakout_date": "2026-07-09",
       "first_breakout_close": 316.22,
       "recent_window_peak_close": 341.07,
@@ -84,45 +82,45 @@
       "consolidation_high_close": 341.07,
       "consolidation_low_close": 315.34,
       "consolidation_range_pct": 8.2,
-      "consolidation_avg_close": 330.96,
-      "consolidation_avg_vs_old_high_pct": 5.0,
+      "consolidation_avg_close": 331.35,
+      "consolidation_avg_vs_old_high_pct": 5.1,
       "post_breakout_peak_close": 341.07,
       "post_breakout_peak_date": "2026-09-25",
       "max_extension_pct": 8.2,
-      "pullback_from_peak_pct": -3.4,
+      "pullback_from_peak_pct": -2.4,
       "hold_days_met": 10,
       "hold_days_total": 10,
-      "avg_dollar_volume_10d": 13212132317.0,
-      "breakout_pct": 4.5
+      "avg_dollar_volume_10d": 13680808185.0,
+      "breakout_pct": 5.7
     }
   ],
   "debug": {
     "momentum": {
-      "checked": 1600,
-      "market_cap_pass": 78,
-      "history_pass": 75,
-      "returns_pass": 75,
-      "rs_5d_pass": 11,
-      "rs_20d_pass": 5,
-      "high_52w_pass": 1,
-      "final": 1
+      "checked": 1680,
+      "market_cap_pass": 83,
+      "history_pass": 80,
+      "returns_pass": 80,
+      "rs_5d_pass": 9,
+      "rs_20d_pass": 3,
+      "high_52w_pass": 0,
+      "final": 0
     },
     "breakout": {
-      "checked": 1600,
-      "market_cap_pass": 136,
-      "history_pass": 133,
-      "ma200_pass": 63,
-      "latest_distance_pass": 6,
-      "breakout_pass": 6,
+      "checked": 1680,
+      "market_cap_pass": 143,
+      "history_pass": 140,
+      "ma200_pass": 67,
+      "latest_distance_pass": 7,
+      "breakout_pass": 7,
       "extension_pass": 4,
-      "consolidation_range_pass": 3,
-      "consolidation_avg_pass": 3,
-      "pullback_pass": 3,
+      "consolidation_range_pass": 2,
+      "consolidation_avg_pass": 2,
+      "pullback_pass": 2,
       "hold_pass": 2,
-      "liquidity_pass": 1,
-      "final": 1
+      "liquidity_pass": 2,
+      "final": 2
     },
-    "failed_batches": 0,
-    "failed_symbols": 11138
+    "failed_batches": 1,
+    "failed_symbols": 10988
   }
 }
