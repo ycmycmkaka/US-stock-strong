@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-24 03:00 UTC",
+  "generated_at": "2026-11-24 05:44 UTC",
   "benchmark_symbol": "SPY",
   "rules": {
     "momentum": {
@@ -304,36 +304,6 @@
       "hold_days_total": 10,
       "avg_dollar_volume_10d": 101726515.0,
       "breakout_pct": 2.9
-    },
-    {
-      "symbol": "KOF",
-      "company": "Coca Cola Femsa S.A.B. de C.V.",
-      "exchange": "NYSE",
-      "market_cap": 24562931712,
-      "recent_close": 116.92,
-      "ma200": 108.08,
-      "old_3y_high": 116.9,
-      "old_3y_high_date": "2026-08-25",
-      "dist_from_old_high_pct": 0.0,
-      "first_breakout_date": "2026-10-14",
-      "first_breakout_close": 116.92,
-      "recent_window_peak_close": 120.95,
-      "recent_window_peak_date": "2026-11-11",
-      "recent_window_max_extension_pct": 3.5,
-      "consolidation_days": 20,
-      "consolidation_high_close": 120.95,
-      "consolidation_low_close": 113.63,
-      "consolidation_range_pct": 6.4,
-      "consolidation_avg_close": 117.42,
-      "consolidation_avg_vs_old_high_pct": 0.4,
-      "post_breakout_peak_close": 120.95,
-      "post_breakout_peak_date": "2026-11-11",
-      "max_extension_pct": 3.5,
-      "pullback_from_peak_pct": -3.3,
-      "hold_days_met": 9,
-      "hold_days_total": 10,
-      "avg_dollar_volume_10d": 38228247.0,
-      "breakout_pct": 0.0
     },
     {
       "symbol": "ALLE",
@@ -1179,9 +1149,9 @@
   "debug": {
     "momentum": {
       "checked": 12757,
-      "market_cap_pass": 896,
-      "history_pass": 880,
-      "returns_pass": 880,
+      "market_cap_pass": 894,
+      "history_pass": 878,
+      "returns_pass": 878,
       "rs_5d_pass": 149,
       "rs_20d_pass": 79,
       "high_52w_pass": 4,
@@ -1189,18 +1159,18 @@
     },
     "breakout": {
       "checked": 12757,
-      "market_cap_pass": 1332,
-      "history_pass": 1310,
-      "ma200_pass": 615,
-      "latest_distance_pass": 77,
-      "breakout_pass": 77,
-      "extension_pass": 57,
-      "consolidation_range_pass": 37,
-      "consolidation_avg_pass": 37,
-      "pullback_pass": 37,
-      "hold_pass": 35,
-      "liquidity_pass": 34,
-      "final": 34
+      "market_cap_pass": 1327,
+      "history_pass": 1305,
+      "ma200_pass": 614,
+      "latest_distance_pass": 76,
+      "breakout_pass": 76,
+      "extension_pass": 56,
+      "consolidation_range_pass": 36,
+      "consolidation_avg_pass": 36,
+      "pullback_pass": 36,
+      "hold_pass": 34,
+      "liquidity_pass": 33,
+      "final": 33
     },
     "failed_batches": 0,
     "failed_symbols": 14
